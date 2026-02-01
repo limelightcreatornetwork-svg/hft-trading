@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Trading Intent - what the strategy wants to do
+model Intent {
+  id          String   @id @default(cuid())
+  symbol      String
+  side        String   // BUY, SELL
+  quantity    Int
+  orderType   String   // MARKET, LIMIT
+  limitPrice  Float?
+  strategy    String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED, EXECUTED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+  riskChecks  RiskCheck[]
+}
+
+// Risk Check Results
+model RiskCheck {
+  id        String   @id @default(cuid())
+  intentId  String
+  intent    Intent   @relation(fields: [intentId], references: [id])
+  checkName String
+  passed    Boolean
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+// Orders submitted to broker
+model Order {
+  id            String   @id @default(cuid())
+  intentId      String
+  intent        Intent   @relation(fields: [intentId], references: [id])
+  brokerOrderId String?  @unique
+  symbol        String
+  side          String
+  quantity      Int
+  orderType     String
+  limitPrice    Float?
+  status        String   @default("PENDING") // PENDING, SUBMITTED, FILLED, PARTIALLY_FILLED, CANCELLED, REJECTED
+  filledQty     Int      @default(0)
+  avgFillPrice  Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  fills         Fill[]
+}
+
+// Individual fills
+model Fill {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  quantity  Int
+  price     Float
+  timestamp DateTime
+  createdAt DateTime @default(now())
+}
+
+// Current positions
+model Position {
+  id           String   @id @default(cuid())
+  symbol       String   @unique
+  quantity     Int
+  avgCost      Float
+  marketValue  Float?
+  unrealizedPL Float?
+  updatedAt    DateTime @updatedAt
+}
+
+// Risk configuration
+model RiskConfig {
+  id                String   @id @default(cuid())
+  maxPositionSize   Int      @default(1000)
+  maxDailyLoss      Float    @default(1000)
+  maxOrderSize      Int      @default(100)
+  allowedSymbols    String[] @default([])
+  tradingEnabled    Boolean  @default(false)
+  // Options-specific limits
+  maxOptionsContracts    Int     @default(10)
+  maxPremiumAtRisk       Float   @default(500)
+  maxDeltaExposure       Float   @default(100)
+  minDaysToExpiration    Int     @default(1)
+  updatedAt         DateTime @updatedAt
+}
+
+// ============================================
+// OPTIONS TRADING MODELS
+// ============================================
+
+// Options Contract Definition
+model OptionsContract {
+  id              String   @id @default(cuid())
+  symbol          String   @unique  // e.g., "AAPL260207C00190000"
+  underlying      String             // e.g., "AAPL"
+  contractType    String             // CALL, PUT
+  strike          Float
+  expiration      DateTime
+  multiplier      Int      @default(100)
+  createdAt       DateTime @default(now())
+  positions       OptionsPosition[]
+  orders          OptionsOrder[]
+}
+
+// Options Intent - what the strategy wants to do with options
+model OptionsIntent {
+  id              String   @id @default(cuid())
+  contractSymbol  String             // Options contract symbol
+  underlying      String             // Underlying symbol
+  side            String             // BUY_TO_OPEN, BUY_TO_CLOSE, SELL_TO_OPEN, SELL_TO_CLOSE
+  quantity        Int
+  orderType       String             // MARKET, LIMIT
+  limitPrice      Float?
+  strategy        String
+  maxPremiumRisk  Float?             // Max premium willing to pay/risk
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  orders          OptionsOrder[]
+  riskChecks      OptionsRiskCheck[]
+}
+
+// Options Risk Check Results
+model OptionsRiskCheck {
+  id        String         @id @default(cuid())
+  intentId  String
+  intent    OptionsIntent  @relation(fields: [intentId], references: [id])
+  checkName String
+  passed    Boolean
+  details   String?
+  createdAt DateTime       @default(now())
+}
+
+// Options Orders
+model OptionsOrder {
+  id              String          @id @default(cuid())
+  intentId        String
+  intent          OptionsIntent   @relation(fields: [intentId], references: [id])
+  contractId      String
+  contract        OptionsContract @relation(fields: [contractId], references: [id])
+  brokerOrderId   String?         @unique
+  side            String
+  quantity        Int
+  orderType       String
+  limitPrice      Float?
+  status          String          @default("PENDING")
+  filledQty       Int             @default(0)
+  avgFillPrice    Float?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  fills           OptionsFill[]
+}
+
+// Options Fills
+model OptionsFill {
+  id        String       @id @default(cuid())
+  orderId   String
+  order     OptionsOrder @relation(fields: [orderId], references: [id])
+  quantity  Int
+  price     Float
+  timestamp DateTime
+  createdAt DateTime     @default(now())
+}
+
+// Options Positions with Greeks
+model OptionsPosition {
+  id              String          @id @default(cuid())
+  contractId      String
+  contract        OptionsContract @relation(fields: [contractId], references: [id])
+  quantity        Int             // Positive = long, Negative = short
+  avgCost         Float
+  marketValue     Float?
+  unrealizedPL    Float?
+  // Greeks
+  delta           Float?
+  gamma           Float?
+  theta           Float?
+  vega            Float?
+  impliedVol      Float?
+  updatedAt       DateTime        @updatedAt
+  greeksHistory   OptionsGreeksSnapshot[]
+
+  @@unique([contractId])
+}
+
+// Greeks History for tracking over time
+model OptionsGreeksSnapshot {
+  id          String          @id @default(cuid())
+  positionId  String
+  position    OptionsPosition @relation(fields: [positionId], references: [id])
+  delta       Float
+  gamma       Float
+  theta       Float
+  vega        Float
+  impliedVol  Float
+  underlyingPrice Float
+  timestamp   DateTime        @default(now())
+}
+
+// Portfolio-level Greeks Summary
+model PortfolioGreeks {
+  id          String   @id @default(cuid())
+  netDelta    Float
+  netGamma    Float
+  netTheta    Float
+  netVega     Float
+  timestamp   DateTime @default(now())
+}
