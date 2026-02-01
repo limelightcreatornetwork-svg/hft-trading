@@ -213,3 +213,91 @@ model PortfolioGreeks {
   netVega     Float
   timestamp   DateTime @default(now())
 }
+
+// ============================================
+// RESEARCH, STRATEGY & ANALYSIS MODELS
+// ============================================
+
+// Trading Strategy
+model Strategy {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  type            String   @default("manual") // manual, momentum, meanReversion, breakout
+  entryConditions Json     // { indicators: [...], thresholds: [...] }
+  exitConditions  Json     // { stopLoss: %, takeProfit: %, trailingStop: % }
+  positionSizing  Json     // { method: "fixed"|"kelly"|"percent", value: ... }
+  riskParams      Json     // { maxLoss: %, maxPositions: n }
+  symbols         String[] @default([])
+  isActive        Boolean  @default(false)
+  backtestResults Json?    // { returns: %, sharpe: n, winRate: % }
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Watchlist
+model Watchlist {
+  id        String   @id @default(cuid())
+  name      String   @default("Default")
+  symbols   String[]
+  notes     Json?    // { "AAPL": "watching for breakout", ... }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Analysis Snapshot (daily portfolio metrics)
+model AnalysisSnapshot {
+  id              String   @id @default(cuid())
+  date            DateTime @unique
+  totalValue      Float
+  dailyPnl        Float
+  totalPnl        Float
+  winRate         Float?
+  sharpeRatio     Float?
+  maxDrawdown     Float?
+  tradesCount     Int      @default(0)
+  winningTrades   Int      @default(0)
+  losingTrades    Int      @default(0)
+  avgWin          Float?
+  avgLoss         Float?
+  positionsJson   Json?    // Snapshot of positions
+  createdAt       DateTime @default(now())
+}
+
+// Market News Cache
+model NewsItem {
+  id          String   @id @default(cuid())
+  headline    String
+  summary     String?
+  url         String   @unique
+  source      String
+  symbols     String[] @default([])
+  sentiment   Float?   // -1 to 1
+  publishedAt DateTime
+  fetchedAt   DateTime @default(now())
+
+  @@index([publishedAt])
+  @@index([symbols])
+}
+
+// Technical Indicator Cache
+model TechnicalData {
+  id        String   @id @default(cuid())
+  symbol    String
+  timeframe String   @default("1D")
+  rsi       Float?
+  macd      Float?
+  macdSignal Float?
+  sma20     Float?
+  sma50     Float?
+  sma200    Float?
+  ema12     Float?
+  ema26     Float?
+  atr       Float?
+  volume    Float?
+  timestamp DateTime
+  updatedAt DateTime @updatedAt
+
+  @@unique([symbol, timeframe, timestamp])
+  @@index([symbol])
+}
