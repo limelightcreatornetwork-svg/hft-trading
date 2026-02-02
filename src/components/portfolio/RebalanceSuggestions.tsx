@@ -19,7 +19,7 @@ interface RebalanceSuggestion {
 
 interface RebalanceSuggestionsProps {
   suggestions: RebalanceSuggestion[];
-  portfolioValue: number;
+  portfolioValue?: number; // Reserved for future use
   loading?: boolean;
 }
 

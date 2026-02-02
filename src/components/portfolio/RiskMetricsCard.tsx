@@ -174,7 +174,7 @@ export function RiskMetricsCard({ metrics, loading }: RiskMetricsCardProps) {
             <div>
               <p className="font-medium">Daily Value at Risk (95% confidence)</p>
               <p className="text-sm text-muted-foreground">
-                Based on historical volatility, there's a 5% chance of losing more than 
+                Based on historical volatility, there&apos;s a 5% chance of losing more than 
                 ${metrics.valueAtRisk.toFixed(2)} ({metrics.valueAtRiskPercent.toFixed(2)}%) in a single day.
               </p>
             </div>

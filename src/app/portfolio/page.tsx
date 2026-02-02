@@ -373,7 +373,7 @@ export default function PortfolioPage() {
                 <div className="p-4 border rounded-lg">
                   <h4 className="font-medium mb-2">Risk Parity</h4>
                   <p className="text-sm text-muted-foreground">
-                    Risk parity allocates capital inversely proportional to each asset's 
+                    Risk parity allocates capital inversely proportional to each asset&apos;s 
                     volatility, ensuring each position contributes equal risk.
                   </p>
                   <ul className="mt-2 text-sm space-y-1">
@@ -429,8 +429,8 @@ export default function PortfolioPage() {
               <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-800">
                   <strong>💡 Tip:</strong> Current suggestions use equal-weight targets. 
-                  In a future update, you'll be able to customize target allocations based on 
-                  your strategy (momentum, value, or risk-parity weighted).
+                  In a future update, you&apos;ll be able to customize target allocations based on 
+                  your strategy (momentum, value, or risk parity weighted).
                 </p>
               </div>
             </CardContent>

@@ -5,7 +5,7 @@
  * and rebalancing recommendations for portfolio management.
  */
 
-import { getLatestQuote, getPositions, AlpacaPosition } from './alpaca';
+import { getPositions, AlpacaPosition } from './alpaca';
 
 // =============================================================================
 // TYPES
@@ -349,11 +349,12 @@ export function calculatePortfolioKelly(
 // RISK PARITY WEIGHTS
 // =============================================================================
 
-interface VolatilityData {
-  symbol: string;
-  volatility: number; // annualized
-  dailyReturns: number[];
-}
+// VolatilityData interface - used for internal calculations
+// interface VolatilityData {
+//   symbol: string;
+//   volatility: number; // annualized
+//   dailyReturns: number[];
+// }
 
 /**
  * Calculate risk parity weights based on inverse volatility
@@ -361,7 +362,7 @@ interface VolatilityData {
 export function calculateRiskParityWeights(
   positions: PortfolioPosition[],
   volatilities: Map<string, number>,
-  portfolioValue: number
+  _portfolioValue: number
 ): RiskParityWeights[] {
   // Calculate inverse volatility for each position
   const inverseVols = positions.map(pos => {
@@ -827,7 +828,7 @@ export function analyzeDiversification(
   const positionConcentration = hhi * 100;
   
   // Score: lower HHI = better diversification
-  let positionScore = Math.max(0, 100 - (hhi * 400)); // HHI of 0.25 = 0 score
+  const positionScore = Math.max(0, 100 - (hhi * 400)); // HHI of 0.25 = 0 score
   
   if (hhi > 0.2) {
     recommendations.push(`High position concentration (${(hhi * 100).toFixed(1)}% HHI). Consider reducing largest positions.`);
@@ -839,7 +840,7 @@ export function analyzeDiversification(
     : 0;
   const sectorConcentration = maxSectorWeight * 100;
   
-  let sectorScore = Math.max(0, 100 - (maxSectorWeight * 200)); // 50% in one sector = 0
+  const sectorScore = Math.max(0, 100 - (maxSectorWeight * 200)); // 50% in one sector = 0
   
   if (maxSectorWeight > 0.4) {
     const topSector = sectorAllocation[0];

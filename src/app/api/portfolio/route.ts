@@ -12,7 +12,6 @@ import {
   generateRebalanceSuggestions,
   generateEqualWeightTargets,
   analyzeDiversification,
-  estimateVolatility,
 } from '@/lib/portfolio-optimizer';
 
 // Disable caching
