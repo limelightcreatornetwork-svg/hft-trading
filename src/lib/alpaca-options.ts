@@ -107,6 +107,29 @@ export interface OptionOrderRequest {
   client_order_id?: string;
 }
 
+export interface OptionOrderResponse {
+  id: string;
+  client_order_id: string;
+  created_at: string;
+  updated_at: string;
+  submitted_at: string;
+  filled_at: string | null;
+  expired_at: string | null;
+  canceled_at: string | null;
+  failed_at: string | null;
+  symbol: string;
+  asset_class: string;
+  qty: string;
+  filled_qty: string;
+  type: string;
+  side: string;
+  time_in_force: string;
+  limit_price: string | null;
+  stop_price: string | null;
+  filled_avg_price: string | null;
+  status: string;
+}
+
 export interface OptionsChainParams {
   underlying_symbol: string;
   expiration_date?: string;
@@ -218,7 +241,7 @@ export async function getOptionsSnapshots(symbols: string[]): Promise<Record<str
  * Submit an options order
  * Note: For Level 1, only covered calls and cash-secured puts are allowed
  */
-export async function submitOptionsOrder(order: OptionOrderRequest): Promise<unknown> {
+export async function submitOptionsOrder(order: OptionOrderRequest): Promise<OptionOrderResponse> {
   // Validate options-specific requirements
   if (order.time_in_force !== 'day') {
     throw new Error('Options orders must use time_in_force: day');
