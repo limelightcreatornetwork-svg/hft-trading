@@ -9,13 +9,9 @@
  */
 
 import { getRegimeDetector, RegimeType } from './regime';
-import alpaca from './alpaca';
 import {
   POSITION_SIZING as POSITION_SIZING_CONFIG,
   CONFIDENCE_CONFIG,
-  VIX_LEVELS,
-  MARKET_HOURS,
-  TRADE_DEFAULTS,
 } from './constants';
 
 export interface ConfidenceScore {
@@ -185,7 +181,7 @@ async function calculateTechnicalScore(symbol: string): Promise<{
       volumeAnomaly: volumeAnomaly,
       reasons,
     };
-  } catch (error) {
+  } catch {
     reasons.push(`Could not fetch regime data - using conservative estimate`);
     return {
       score: 5,
@@ -286,7 +282,7 @@ async function calculateMarketConditionsScore(): Promise<{
     }
     
     return { score, vixLevel: vixEstimate, reasons };
-  } catch (error) {
+  } catch {
     reasons.push(`Could not assess market conditions - using moderate estimate`);
     return { score: 6, vixLevel: 20, reasons };
   }
@@ -408,7 +404,6 @@ export async function getSuggestedLevels(symbol: string, entryPrice: number, sid
     const result = await detector.detect();
     
     // Use 2x ATR for TP, 1x ATR for SL
-    const atr = result.metrics.atr;
     const atrPercent = result.metrics.atrPercent;
     
     let takeProfitPct = atrPercent * 2;  // 2x ATR
@@ -431,7 +426,7 @@ export async function getSuggestedLevels(symbol: string, entryPrice: number, sid
       stopLossPct,
       atrBased: true,
     };
-  } catch (error) {
+  } catch {
     // Default to fixed percentages
     const takeProfitPct = 2;
     const stopLossPct = 1;

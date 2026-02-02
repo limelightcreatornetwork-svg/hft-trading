@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ConfidenceBreakdown, ConfidenceIndicator } from './ConfidenceIndicator';
+import { ConfidenceBreakdown } from './ConfidenceIndicator';
 
 interface ConfidencePreview {
   total: number;
@@ -32,6 +32,17 @@ interface SuggestedLevels {
   atrBased: boolean;
 }
 
+interface TradeResult {
+  type: 'success' | 'skipped';
+  message?: string;
+  position?: {
+    symbol: string;
+    side: string;
+    quantity: number;
+  };
+  confidence?: ConfidencePreview;
+}
+
 export function ConfidenceTradeForm() {
   const [symbol, setSymbol] = useState('');
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
@@ -46,7 +57,7 @@ export function ConfidenceTradeForm() {
   const [previewing, setPreviewing] = useState(false);
   const [preview, setPreview] = useState<ConfidencePreview | null>(null);
   const [suggestedLevels, setSuggestedLevels] = useState<SuggestedLevels | null>(null);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<TradeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const previewConfidence = async () => {
@@ -283,7 +294,7 @@ export function ConfidenceTradeForm() {
                 result.type === 'skipped' ? 'bg-yellow-50 border border-yellow-200' :
                 'bg-red-50 border border-red-200'
               }`}>
-                {result.type === 'success' && (
+                {result.type === 'success' && result.position && (
                   <>
                     <p className="font-semibold text-green-700">✓ Trade Created</p>
                     <p className="text-sm text-green-600">
