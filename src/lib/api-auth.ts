@@ -172,6 +172,11 @@ export function authenticateRequest(request: NextRequest): AuthResult {
 }
 
 /**
+ * Route handler context type for Next.js 16+
+ */
+type RouteContext = { params: Promise<Record<string, string>> };
+
+/**
  * Higher-order function to wrap route handlers with authentication
  *
  * Usage:
@@ -181,10 +186,10 @@ export function authenticateRequest(request: NextRequest): AuthResult {
  * });
  * ```
  */
-export function withAuth<T>(
-  handler: (request: NextRequest, ...args: T[]) => Promise<NextResponse>
-): (request: NextRequest, ...args: T[]) => Promise<NextResponse> {
-  return async (request: NextRequest, ...args: T[]): Promise<NextResponse> => {
+export function withAuth(
+  handler: (request: NextRequest, context?: RouteContext) => Promise<NextResponse>
+): (request: NextRequest, context?: RouteContext) => Promise<NextResponse> {
+  return async (request: NextRequest, context?: RouteContext): Promise<NextResponse> => {
     const authResult = authenticateRequest(request);
 
     if (!authResult.authenticated) {
@@ -192,7 +197,7 @@ export function withAuth<T>(
     }
 
     // Add rate limit headers to response
-    const response = await handler(request, ...args);
+    const response = await handler(request, context);
 
     return response;
   };

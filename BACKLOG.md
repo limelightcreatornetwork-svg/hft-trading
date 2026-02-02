@@ -144,12 +144,13 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Input validation for options orders POST | 27 | 2026-02-02 |
 | Input validation for risk PUT endpoint | 28 | 2026-02-02 |
 | Fix TypeScript error in intents route | 29 | 2026-02-02 |
+| Fix withAuth type for Next.js 16 compat | 30 | 2026-02-02 |
 
 ---
 
 ## Notes
 
-### Code Quality Metrics (Updated Cycle 29)
+### Code Quality Metrics (Updated Cycle 30)
 - **Test Coverage**: 296 tests across 14 test suites
 - **Lint Status**: 2 warnings (reserved state for future feature), 0 errors
 - **TypeScript Strictness**: High (strict mode enabled)

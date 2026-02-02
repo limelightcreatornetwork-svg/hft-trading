@@ -112,15 +112,16 @@ describe('API Authentication', () => {
       const mockHandler = jest.fn().mockResolvedValue(
         new Response(JSON.stringify({ success: true }), { status: 200 })
       );
-      
+
       const wrappedHandler = withAuth(mockHandler);
       const request = new NextRequest('http://localhost:3000/api/test', {
         headers: new Headers({ 'X-API-Key': 'test-api-key-123' }),
       });
-      
+
       await wrappedHandler(request);
-      
-      expect(mockHandler).toHaveBeenCalledWith(request);
+
+      // Handler is called with request and optional context
+      expect(mockHandler).toHaveBeenCalledWith(request, undefined);
     });
 
     it('should block unauthenticated requests', async () => {
