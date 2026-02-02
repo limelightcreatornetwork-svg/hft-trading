@@ -10,6 +10,13 @@
 
 import { getRegimeDetector, RegimeType } from './regime';
 import alpaca from './alpaca';
+import {
+  POSITION_SIZING as POSITION_SIZING_CONFIG,
+  CONFIDENCE_CONFIG,
+  VIX_LEVELS,
+  MARKET_HOURS,
+  TRADE_DEFAULTS,
+} from './constants';
 
 export interface ConfidenceScore {
   total: number;           // 1-10
@@ -39,13 +46,8 @@ export interface TradeParams {
   stopPrice?: number;      // For R:R calculation
 }
 
-// Position sizing based on confidence
-export const POSITION_SIZING = {
-  HIGH: { min: 8, max: 10, pct: 20 },    // 8-10: 20% of portfolio
-  MEDIUM: { min: 6, max: 7, pct: 10 },   // 6-7: 10% of portfolio
-  LOW: { min: 4, max: 5, pct: 5 },       // 4-5: 5% of portfolio
-  SKIP: { min: 1, max: 3, pct: 0 },      // 1-3: Skip trade
-};
+// Re-export position sizing from centralized constants for backwards compatibility
+export const POSITION_SIZING = POSITION_SIZING_CONFIG;
 
 /**
  * Calculate confidence score for a trade
@@ -69,15 +71,16 @@ export async function calculateConfidence(params: TradeParams): Promise<Confiden
   const timeResult = calculateTimeOfDayScore();
   reasoning.push(...timeResult.reasons);
   
-  // Calculate weighted average
-  // Technical: 35%, Risk/Reward: 25%, Market: 25%, Time: 15%
-  const weightedScore = 
-    technicalResult.score * 0.35 +
-    riskRewardResult.score * 0.25 +
-    marketResult.score * 0.25 +
-    timeResult.score * 0.15;
-  
-  const totalScore = Math.round(Math.max(1, Math.min(10, weightedScore)));
+  // Calculate weighted average using configurable weights
+  const weightedScore =
+    technicalResult.score * CONFIDENCE_CONFIG.WEIGHT_TECHNICAL +
+    riskRewardResult.score * CONFIDENCE_CONFIG.WEIGHT_RISK_REWARD +
+    marketResult.score * CONFIDENCE_CONFIG.WEIGHT_MARKET_CONDITIONS +
+    timeResult.score * CONFIDENCE_CONFIG.WEIGHT_TIME_OF_DAY;
+
+  const totalScore = Math.round(
+    Math.max(CONFIDENCE_CONFIG.SCORE_MIN, Math.min(CONFIDENCE_CONFIG.SCORE_MAX, weightedScore))
+  );
   
   // Determine position sizing
   let recommendation: ConfidenceScore['recommendation'];

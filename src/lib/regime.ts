@@ -9,6 +9,7 @@
  */
 
 import alpaca from './alpaca';
+import { REGIME_THRESHOLDS, TA_PERIODS } from './constants';
 
 export type RegimeType = 'CHOP' | 'TREND' | 'VOL_EXPANSION' | 'UNTRADEABLE';
 
@@ -43,29 +44,8 @@ export interface Bar {
   VWAP: number;
 }
 
-// Regime thresholds - tuned for typical equity behavior
-const THRESHOLDS = {
-  // ADX thresholds
-  ADX_TREND: 25,           // Above = trending
-  ADX_STRONG_TREND: 40,    // Above = strong trend
-  ADX_CHOP: 20,            // Below = choppy
-  
-  // ATR volatility thresholds (as % of price)
-  VOL_LOW: 0.5,            // Below = low volatility
-  VOL_NORMAL: 1.5,         // Normal range
-  VOL_HIGH: 2.5,           // Above = high volatility
-  VOL_EXTREME: 4.0,        // Above = extreme volatility
-  
-  // Spread thresholds (as % of price)
-  SPREAD_TIGHT: 0.02,      // Below = tight spread
-  SPREAD_WIDE: 0.10,       // Above = wide spread
-  SPREAD_EXTREME: 0.25,    // Above = untradeable
-  
-  // Volume anomaly thresholds
-  VOL_ANOMALY_LOW: 0.5,    // Below = unusually low volume
-  VOL_ANOMALY_HIGH: 2.0,   // Above = unusually high volume
-  VOL_ANOMALY_EXTREME: 4.0,// Above = extreme volume spike
-};
+// Use centralized thresholds from constants.ts
+const THRESHOLDS = REGIME_THRESHOLDS;
 
 export class RegimeDetector {
   private symbol: string;
@@ -75,9 +55,9 @@ export class RegimeDetector {
 
   constructor(
     symbol: string = 'SPY',
-    lookbackPeriod: number = 20,
-    atrPeriod: number = 14,
-    adxPeriod: number = 14
+    lookbackPeriod: number = TA_PERIODS.LOOKBACK,
+    atrPeriod: number = TA_PERIODS.ATR,
+    adxPeriod: number = TA_PERIODS.ADX
   ) {
     this.symbol = symbol;
     this.lookbackPeriod = lookbackPeriod;
@@ -88,7 +68,7 @@ export class RegimeDetector {
   /**
    * Fetch historical bars from Alpaca
    */
-  async getBars(timeframe: string = '5Min', limit: number = 100): Promise<Bar[]> {
+  async getBars(timeframe: string = '5Min', limit: number = TA_PERIODS.BARS_FETCH): Promise<Bar[]> {
     try {
       const bars = await alpaca.getBarsV2(
         this.symbol,
