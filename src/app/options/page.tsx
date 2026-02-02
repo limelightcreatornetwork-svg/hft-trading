@@ -5,7 +5,9 @@ import {
   OptionsChainViewer, 
   OptionsOrderForm, 
   GreeksDisplay, 
-  OptionsPositions 
+  OptionsPositions,
+  PLSimulator,
+  PortfolioGreeks,
 } from '@/components/options';
 
 interface Position {
@@ -174,23 +176,37 @@ export default function OptionsPage() {
 
       {/* Main Content */}
       {activeTab === 'chain' && (
-        <div className="grid grid-cols-3 gap-6">
-          {/* Options Chain - 2 columns */}
-          <div className="col-span-2">
+        <div className="grid grid-cols-12 gap-6">
+          {/* Options Chain - 7 columns */}
+          <div className="col-span-7">
             <OptionsChainViewer
               onSelectContract={handleContractSelect}
               positions={positions}
             />
           </div>
 
-          {/* Sidebar - 1 column */}
-          <div className="space-y-6">
+          {/* Sidebar - 5 columns */}
+          <div className="col-span-5 space-y-4">
             {/* Greeks Display */}
             <GreeksDisplay
               greeks={greeksForDisplay}
               quantity={1}
               showExplanations={true}
             />
+
+            {/* P&L Simulator - only show when contract selected */}
+            {selectedContract && selectedContract.quote && (
+              <PLSimulator
+                currentPrice={100} // Would need real underlying price
+                strike={selectedContract.contract.strike}
+                premium={selectedContract.quote.bid}
+                optionType={selectedContract.contract.type}
+                side="short"
+                quantity={1}
+                daysToExpiry={Math.ceil((new Date(selectedContract.contract.expiration).getTime() - Date.now()) / (1000 * 60 * 60 * 24))}
+                greeks={selectedContract.greeks}
+              />
+            )}
 
             {/* Order Form */}
             <OptionsOrderForm
@@ -204,7 +220,17 @@ export default function OptionsPage() {
       )}
 
       {activeTab === 'positions' && (
-        <OptionsPositions onExercise={handleExercise} />
+        <div className="grid grid-cols-3 gap-6">
+          {/* Positions Table - 2 columns */}
+          <div className="col-span-2">
+            <OptionsPositions onExercise={handleExercise} />
+          </div>
+          
+          {/* Portfolio Greeks - 1 column */}
+          <div>
+            <PortfolioGreeks showDetails={true} />
+          </div>
+        </div>
       )}
 
       {activeTab === 'strategies' && (

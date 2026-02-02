@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         quotes,
+        snapshots, // Also return raw snapshots for components that need them
         count: quotes.length,
         timestamp: new Date().toISOString(),
       },

@@ -94,14 +94,14 @@ export function OptionsPositions({ onExercise }: OptionsPositionsProps) {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-gray-900 border-gray-800">
         <CardHeader>
-          <CardTitle>Options Positions</CardTitle>
+          <CardTitle className="text-lg">💼 Options Positions</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="animate-pulse space-y-2">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-12 bg-gray-200 rounded"></div>
+              <div key={i} className="h-12 bg-gray-800 rounded"></div>
             ))}
           </div>
         </CardContent>
@@ -110,116 +110,187 @@ export function OptionsPositions({ onExercise }: OptionsPositionsProps) {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Options Positions ({positions.length})</CardTitle>
+    <Card className="bg-gray-900 border-gray-800">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-lg">💼 Options Positions ({positions.length})</CardTitle>
         <div className="flex items-center gap-4">
           <div className="text-sm">
-            <span className="text-muted-foreground mr-2">Total:</span>
-            <span className="font-bold">${totalValue.toLocaleString()}</span>
-            <span className={`ml-2 ${totalPL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <span className="text-gray-400 mr-2">Total:</span>
+            <span className="font-bold text-white">${totalValue.toLocaleString()}</span>
+            <span className={`ml-2 font-medium ${totalPL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               ({totalPL >= 0 ? '+' : ''}${totalPL.toFixed(2)})
             </span>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchPositions}>
-            Refresh
+          <Button variant="outline" size="sm" onClick={fetchPositions} className="border-gray-700">
+            🔄 Refresh
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-            {error}
+          <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 text-red-300 rounded-lg text-sm">
+            ⚠️ {error}
           </div>
         )}
 
         {positions.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">
-            No open options positions
-          </p>
+          <div className="text-center py-12">
+            <div className="text-4xl mb-3">📭</div>
+            <p className="text-gray-400 mb-2">No open options positions</p>
+            <p className="text-gray-500 text-sm">
+              Go to the Chain tab to open a new position
+            </p>
+          </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Contract</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Strike</TableHead>
-                <TableHead className="text-right">Expiry</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Entry</TableHead>
-                <TableHead className="text-right">Current</TableHead>
-                <TableHead className="text-right">P&L</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {positions.map((position) => {
-                const daysToExpiry = getDaysToExpiry(position.expiration);
-                const isNearExpiry = daysToExpiry !== null && daysToExpiry <= 7;
-                
-                return (
-                  <TableRow key={position.symbol}>
-                    <TableCell>
-                      <div>
-                        <span className="font-medium">{position.underlying}</span>
-                        <span className="text-xs text-muted-foreground ml-2 font-mono">
-                          {position.symbol}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={position.optionType === 'call' ? 'success' : 'destructive'}>
-                        {position.optionType?.toUpperCase()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      ${position.strike?.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className={isNearExpiry ? 'text-orange-600' : ''}>
-                        {position.expiration}
-                        {daysToExpiry !== null && (
-                          <span className="text-xs ml-1">
-                            ({daysToExpiry}d)
+          <>
+          <div className="rounded-lg border border-gray-700 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-gray-700 bg-gray-800/50">
+                  <TableHead className="text-gray-400">Contract</TableHead>
+                  <TableHead className="text-gray-400">Type</TableHead>
+                  <TableHead className="text-right text-gray-400">Strike</TableHead>
+                  <TableHead className="text-right text-gray-400">Expiry</TableHead>
+                  <TableHead className="text-right text-gray-400">Qty</TableHead>
+                  <TableHead className="text-right text-gray-400">Entry</TableHead>
+                  <TableHead className="text-right text-gray-400">Current</TableHead>
+                  <TableHead className="text-right text-gray-400">P&L</TableHead>
+                  <TableHead className="text-right text-gray-400">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {positions.map((position) => {
+                  const daysToExpiry = getDaysToExpiry(position.expiration);
+                  const isNearExpiry = daysToExpiry !== null && daysToExpiry <= 7;
+                  const isExpiringSoon = daysToExpiry !== null && daysToExpiry <= 3;
+                  
+                  return (
+                    <TableRow 
+                      key={position.symbol}
+                      className={`border-gray-700 transition-colors hover:bg-gray-800/50 ${
+                        isExpiringSoon ? 'bg-orange-900/20' : ''
+                      }`}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white">{position.underlying}</span>
+                          <span className="text-xs text-gray-500 font-mono">
+                            {position.symbol.slice(-8)}
                           </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant={position.side === 'long' ? 'secondary' : 'outline'}>
-                        {position.side === 'long' ? '+' : '-'}{Math.abs(position.quantity)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      ${position.avgEntryPrice.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      ${position.currentPrice.toFixed(2)}
-                    </TableCell>
-                    <TableCell className={`text-right font-medium ${
-                      position.unrealizedPL >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {position.unrealizedPL >= 0 ? '+' : ''}${position.unrealizedPL.toFixed(2)}
-                      <span className="text-xs ml-1">
-                        ({position.unrealizedPLPercent.toFixed(1)}%)
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {position.side === 'long' && onExercise && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => onExercise(position.symbol)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={position.optionType === 'call' ? 'success' : 'destructive'}>
+                          {position.optionType === 'call' ? '📈' : '📉'} {position.optionType?.toUpperCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-white">
+                        ${position.strike?.toFixed(0)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className={isNearExpiry ? 'text-orange-400' : 'text-gray-300'}>
+                          {new Date(position.expiration || '').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {daysToExpiry !== null && (
+                            <span className={`text-xs ml-1 ${isExpiringSoon ? 'text-red-400 font-bold' : 'text-gray-500'}`}>
+                              ({daysToExpiry}d)
+                            </span>
+                          )}
+                          {isExpiringSoon && <span className="ml-1">⚠️</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge 
+                          variant={position.side === 'long' ? 'secondary' : 'outline'}
+                          className={position.side === 'long' ? 'bg-green-900/50 text-green-400 border-green-700' : 'bg-red-900/50 text-red-400 border-red-700'}
                         >
-                          Exercise
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                          {position.side === 'long' ? '🔼' : '🔽'} {Math.abs(position.quantity)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-gray-400">
+                        ${position.avgEntryPrice.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-white">
+                        ${position.currentPrice.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className={`font-bold ${
+                          position.unrealizedPL >= 0 ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {position.unrealizedPL >= 0 ? '+' : ''}${position.unrealizedPL.toFixed(2)}
+                        </div>
+                        <div className={`text-xs ${
+                          position.unrealizedPLPercent >= 0 ? 'text-green-500' : 'text-red-500'
+                        }`}>
+                          {position.unrealizedPLPercent >= 0 ? '+' : ''}{position.unrealizedPLPercent.toFixed(1)}%
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-xs border-gray-600 hover:bg-gray-700"
+                            onClick={() => {/* TODO: Implement close position */}}
+                          >
+                            Close
+                          </Button>
+                          {position.side === 'long' && onExercise && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="text-xs border-blue-600 text-blue-400 hover:bg-blue-900/30"
+                              onClick={() => onExercise(position.symbol)}
+                            >
+                              Exercise
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          
+          {/* Summary Cards */}
+          <div className="grid grid-cols-4 gap-3 mt-4">
+            <div className="bg-gray-800 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-500">Total Positions</div>
+              <div className="text-xl font-bold text-white">{positions.length}</div>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-500">Long / Short</div>
+              <div className="text-xl font-bold">
+                <span className="text-green-400">{positions.filter(p => p.side === 'long').length}</span>
+                <span className="text-gray-500"> / </span>
+                <span className="text-red-400">{positions.filter(p => p.side !== 'long').length}</span>
+              </div>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-500">Calls / Puts</div>
+              <div className="text-xl font-bold">
+                <span className="text-green-400">{positions.filter(p => p.optionType === 'call').length}</span>
+                <span className="text-gray-500"> / </span>
+                <span className="text-red-400">{positions.filter(p => p.optionType === 'put').length}</span>
+              </div>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-500">Expiring ≤7d</div>
+              <div className={`text-xl font-bold ${
+                positions.filter(p => {
+                  const dte = getDaysToExpiry(p.expiration);
+                  return dte !== null && dte <= 7;
+                }).length > 0 ? 'text-orange-400' : 'text-gray-500'
+              }`}>
+                {positions.filter(p => {
+                  const dte = getDaysToExpiry(p.expiration);
+                  return dte !== null && dte <= 7;
+                }).length}
+              </div>
+            </div>
+          </div>
+          </>
         )}
       </CardContent>
     </Card>

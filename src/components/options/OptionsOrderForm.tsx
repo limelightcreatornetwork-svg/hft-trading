@@ -146,12 +146,15 @@ export function OptionsOrderForm({
     : 0;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Options Order</span>
-          <Badge variant={side === 'sell' ? 'destructive' : 'success'}>
-            {side === 'sell' ? 'SELL' : 'BUY'} TO {side === 'sell' ? 'OPEN' : 'OPEN'}
+    <Card className="bg-gray-900 border-gray-800">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center justify-between text-lg">
+          <span>📝 Options Order</span>
+          <Badge 
+            variant={side === 'sell' ? 'destructive' : 'success'}
+            className={side === 'sell' ? 'bg-red-900/50 text-red-400 border-red-700' : 'bg-green-900/50 text-green-400 border-green-700'}
+          >
+            {side === 'sell' ? '🔽 SELL' : '🔼 BUY'} TO OPEN
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -159,7 +162,7 @@ export function OptionsOrderForm({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Strategy Selection */}
           <div>
-            <label className="text-sm text-muted-foreground">Strategy (Level 1)</label>
+            <label className="text-sm text-gray-400">Strategy (Level 1)</label>
             <Select
               value={strategy}
               onChange={(e) => {
@@ -174,22 +177,22 @@ export function OptionsOrderForm({
                 { value: 'cash_secured_put', label: '💵 Cash-Secured Put (Sell Put w/ Cash)' },
                 { value: 'custom', label: '⚙️ Custom' },
               ]}
-              className="mt-1"
+              className="mt-1 bg-gray-800 border-gray-700"
             />
           </div>
 
           {/* Contract Symbol */}
           <div>
-            <label className="text-sm text-muted-foreground">Option Contract</label>
+            <label className="text-sm text-gray-400">Option Contract</label>
             <Input
               value={symbol}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               placeholder="AAPL240119C00100000"
-              className="mt-1 font-mono"
+              className="mt-1 font-mono bg-gray-800 border-gray-700 text-white"
               disabled={loading}
             />
             {selectedContract && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {selectedContract.contract.name}
               </p>
             )}
@@ -198,27 +201,27 @@ export function OptionsOrderForm({
           {/* Side and Quantity */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-muted-foreground">Side</label>
+              <label className="text-sm text-gray-400">Side</label>
               <Select
                 value={side}
                 onChange={(e) => setSide(e.target.value as 'buy' | 'sell')}
                 options={[
-                  { value: 'sell', label: 'SELL' },
-                  { value: 'buy', label: 'BUY' },
+                  { value: 'sell', label: '🔽 SELL' },
+                  { value: 'buy', label: '🔼 BUY' },
                 ]}
-                className="mt-1"
+                className="mt-1 bg-gray-800 border-gray-700"
                 disabled={loading || strategy !== 'custom'}
               />
             </div>
             <div>
-              <label className="text-sm text-muted-foreground">Contracts</label>
+              <label className="text-sm text-gray-400">Contracts</label>
               <Input
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 min="1"
                 step="1"
-                className="mt-1"
+                className="mt-1 bg-gray-800 border-gray-700 text-white"
                 disabled={loading}
               />
             </div>
@@ -227,28 +230,28 @@ export function OptionsOrderForm({
           {/* Order Type and Price */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-muted-foreground">Order Type</label>
+              <label className="text-sm text-gray-400">Order Type</label>
               <Select
                 value={orderType}
                 onChange={(e) => setOrderType(e.target.value as 'market' | 'limit')}
                 options={[
-                  { value: 'limit', label: 'LIMIT' },
-                  { value: 'market', label: 'MARKET' },
+                  { value: 'limit', label: '📊 LIMIT' },
+                  { value: 'market', label: '⚡ MARKET' },
                 ]}
-                className="mt-1"
+                className="mt-1 bg-gray-800 border-gray-700"
                 disabled={loading}
               />
             </div>
             {orderType === 'limit' && (
               <div>
-                <label className="text-sm text-muted-foreground">Limit Price</label>
+                <label className="text-sm text-gray-400">Limit Price</label>
                 <Input
                   type="number"
                   value={limitPrice}
                   onChange={(e) => setLimitPrice(e.target.value)}
                   step="0.01"
                   min="0.01"
-                  className="mt-1"
+                  className="mt-1 bg-gray-800 border-gray-700 text-white"
                   disabled={loading}
                 />
               </div>
@@ -257,67 +260,96 @@ export function OptionsOrderForm({
 
           {/* Quote Info */}
           {selectedContract?.quote && (
-            <div className="p-3 bg-gray-50 rounded-lg space-y-1">
+            <div className="p-3 bg-gray-800 rounded-lg space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Bid × Ask:</span>
-                <span className="font-mono">
-                  ${selectedContract.quote.bid.toFixed(2)} × ${selectedContract.quote.ask.toFixed(2)}
+                <span className="text-gray-400">Bid × Ask:</span>
+                <span className="font-mono text-white">
+                  <span className="text-green-400">${selectedContract.quote.bid.toFixed(2)}</span>
+                  <span className="text-gray-500"> × </span>
+                  <span className="text-red-400">${selectedContract.quote.ask.toFixed(2)}</span>
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Spread:</span>
-                <span className="font-mono">
+                <span className="text-gray-400">Spread:</span>
+                <span className={`font-mono ${(selectedContract.quote.ask - selectedContract.quote.bid) < 0.10 ? 'text-green-400' : 'text-yellow-400'}`}>
                   ${(selectedContract.quote.ask - selectedContract.quote.bid).toFixed(2)}
+                  {(selectedContract.quote.ask - selectedContract.quote.bid) < 0.10 && ' ✓'}
                 </span>
               </div>
               {selectedContract.greeks && (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Delta:</span>
-                    <span className="font-mono">{selectedContract.greeks.delta.toFixed(3)}</span>
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-700">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500">Delta</div>
+                    <div className={`font-mono text-sm ${selectedContract.greeks.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {selectedContract.greeks.delta.toFixed(3)}
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Theta:</span>
-                    <span className="font-mono text-red-600">
-                      ${selectedContract.greeks.theta.toFixed(2)}/day
-                    </span>
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500">Theta</div>
+                    <div className="font-mono text-sm text-red-400">
+                      ${selectedContract.greeks.theta.toFixed(2)}
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">IV:</span>
-                    <span className="font-mono">{(selectedContract.greeks.iv * 100).toFixed(1)}%</span>
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500">IV</div>
+                    <div className="font-mono text-sm text-blue-400">
+                      {(selectedContract.greeks.iv * 100).toFixed(0)}%
+                    </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
           )}
 
           {/* Requirements Check */}
           {side === 'sell' && selectedContract && (
-            <div className={`p-3 rounded-lg ${
+            <div className={`p-3 rounded-lg border ${
               (selectedContract.contract.type === 'call' && contractQty <= maxCoveredCalls) ||
               (selectedContract.contract.type === 'put' && hasSufficientCash)
-                ? 'bg-green-50 text-green-800'
-                : 'bg-red-50 text-red-800'
+                ? 'bg-green-900/30 border-green-700/50 text-green-300'
+                : 'bg-red-900/30 border-red-700/50 text-red-300'
             }`}>
               {selectedContract.contract.type === 'call' ? (
                 <div className="text-sm">
-                  <strong>Covered Call Requirements:</strong>
-                  <div>Shares owned: {availableShares} ({maxCoveredCalls} contracts max)</div>
-                  <div>Contracts requested: {contractQty}</div>
+                  <strong className="flex items-center gap-1">
+                    📞 Covered Call Requirements
+                    {contractQty <= maxCoveredCalls && <span className="text-green-400">✓</span>}
+                  </strong>
+                  <div className="mt-1 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Shares owned:</span>
+                      <span className="font-mono">{availableShares} ({maxCoveredCalls} contracts)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Requested:</span>
+                      <span className="font-mono">{contractQty}</span>
+                    </div>
+                  </div>
                   {contractQty > maxCoveredCalls && (
-                    <div className="text-red-600 font-medium mt-1">
-                      ⚠️ Insufficient shares for covered call
+                    <div className="text-red-400 font-medium mt-2 flex items-center gap-1">
+                      ⚠️ Need {(contractQty - maxCoveredCalls) * 100} more shares
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="text-sm">
-                  <strong>Cash-Secured Put Requirements:</strong>
-                  <div>Cash required: ${cashRequired.toLocaleString()}</div>
-                  <div>Buying power: ${buyingPower.toLocaleString()}</div>
+                  <strong className="flex items-center gap-1">
+                    💵 Cash-Secured Put Requirements
+                    {hasSufficientCash && <span className="text-green-400">✓</span>}
+                  </strong>
+                  <div className="mt-1 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Cash required:</span>
+                      <span className="font-mono">${cashRequired.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Buying power:</span>
+                      <span className="font-mono">${buyingPower.toLocaleString()}</span>
+                    </div>
+                  </div>
                   {!hasSufficientCash && (
-                    <div className="text-red-600 font-medium mt-1">
-                      ⚠️ Insufficient buying power for cash-secured put
+                    <div className="text-red-400 font-medium mt-2 flex items-center gap-1">
+                      ⚠️ Need ${(cashRequired - buyingPower).toLocaleString()} more
                     </div>
                   )}
                 </div>
@@ -327,42 +359,62 @@ export function OptionsOrderForm({
 
           {/* Premium Preview */}
           {estimatedPremium > 0 && (
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <div className="flex justify-between">
-                <span className="text-blue-800">
-                  {side === 'sell' ? 'Estimated Premium Received:' : 'Estimated Cost:'}
+            <div className={`p-4 rounded-lg border ${
+              side === 'sell' 
+                ? 'bg-green-900/30 border-green-700/50' 
+                : 'bg-blue-900/30 border-blue-700/50'
+            }`}>
+              <div className="flex justify-between items-center">
+                <span className={side === 'sell' ? 'text-green-300' : 'text-blue-300'}>
+                  {side === 'sell' ? '💰 Premium Received:' : '💸 Total Cost:'}
                 </span>
-                <span className="font-bold text-blue-800">
+                <span className={`font-bold text-xl ${side === 'sell' ? 'text-green-400' : 'text-blue-400'}`}>
                   ${estimatedPremium.toFixed(2)}
                 </span>
               </div>
+              {side === 'sell' && (
+                <p className="text-xs text-gray-500 mt-1">
+                  This premium is credited to your account immediately
+                </p>
+              )}
             </div>
           )}
 
           {/* Error/Success Messages */}
           {error && (
-            <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-              {error}
+            <div className="p-3 bg-red-900/30 border border-red-700/50 text-red-300 rounded-lg text-sm flex items-center gap-2">
+              <span>❌</span> {error}
             </div>
           )}
           {success && (
-            <div className="p-3 bg-green-50 text-green-700 rounded-lg text-sm">
-              {success}
+            <div className="p-3 bg-green-900/30 border border-green-700/50 text-green-300 rounded-lg text-sm flex items-center gap-2">
+              <span>✅</span> {success}
             </div>
           )}
 
           {/* Submit Button */}
           <Button
             type="submit"
-            className="w-full"
+            className={`w-full h-12 text-lg font-bold ${
+              side === 'sell' 
+                ? 'bg-red-600 hover:bg-red-700' 
+                : 'bg-green-600 hover:bg-green-700'
+            }`}
             disabled={loading || !canSubmit()}
-            variant={side === 'sell' ? 'destructive' : 'default'}
           >
-            {loading ? 'Submitting...' : `${side.toUpperCase()} ${contractQty} Contract${contractQty !== 1 ? 's' : ''}`}
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <span className="animate-spin">⏳</span> Submitting...
+              </span>
+            ) : (
+              <span>
+                {side === 'sell' ? '🔽' : '🔼'} {side.toUpperCase()} {contractQty} Contract{contractQty !== 1 ? 's' : ''}
+              </span>
+            )}
           </Button>
 
-          <p className="text-xs text-muted-foreground text-center">
-            Options trading involves risk. Level 1 only supports covered calls and cash-secured puts.
+          <p className="text-xs text-gray-500 text-center">
+            ⚠️ Options trading involves risk. Level 1 only supports covered calls and cash-secured puts.
           </p>
         </form>
       </CardContent>
