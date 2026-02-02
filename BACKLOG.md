@@ -36,7 +36,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
   - `src/lib/alpaca.ts` (0 tests) - needs tests
   - All API routes (0 tests) - needs integration tests
 - **Impact**: Regressions can go undetected
-- **Status**: 🔄 IN PROGRESS (160/200+ target)
+- **Status**: 🔄 IN PROGRESS (232/200+ target) ✅
 
 ### 4. No API Authentication
 - **Files**: All `src/app/api/*/route.ts`
@@ -121,6 +121,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | React error boundaries for dashboard sections | 4 | 2026-02-02 |
 | Centralized configurable constants (regime, confidence, risk) | 5 | 2026-02-02 |
 | Audit logging system with buffered writes | 6 | 2026-02-02 |
+| Test coverage: audit-log module (23 tests) | 7 | 2026-02-02 |
 
 ---
 
