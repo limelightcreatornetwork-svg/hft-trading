@@ -129,6 +129,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Risk API auth + options type safety | 12 | 2026-02-02 |
 | Auth for account, positions routes + div/0 fix | 13 | 2026-02-02 |
 | Auth for stats, intents, managed positions | 14 | 2026-02-02 |
+| Auth for alerts routes | 15 | 2026-02-02 |
 
 ---
 
