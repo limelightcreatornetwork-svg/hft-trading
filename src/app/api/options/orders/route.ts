@@ -8,6 +8,7 @@ import {
 import { getPositions, getAccount } from '@/lib/alpaca';
 import { withAuth } from '@/lib/api-auth';
 import { audit } from '@/lib/audit-log';
+import { validateSide, validateOrderType, validatePositiveNumber } from '@/lib/validation';
 
 /**
  * POST /api/options/orders
@@ -20,20 +21,17 @@ import { audit } from '@/lib/audit-log';
 export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
-      symbol, 
-      quantity, 
-      side, 
-      type = 'limit',
+    const {
+      symbol,
       limitPrice,
       strategy,
       skipValidation = false,
     } = body;
 
-    // Validate required fields
-    if (!symbol || !quantity || !side) {
+    // Validate option symbol
+    if (!symbol || typeof symbol !== 'string') {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: symbol, quantity, side' },
+        { success: false, error: 'Option symbol is required' },
         { status: 400 }
       );
     }
@@ -42,18 +40,40 @@ export const POST = withAuth(async function POST(request: NextRequest) {
     const parsed = parseOptionSymbol(symbol);
     if (!parsed) {
       return NextResponse.json(
-        { success: false, error: 'Invalid option symbol format' },
+        { success: false, error: 'Invalid option symbol format. Expected format: AAPL240119C00100000' },
         { status: 400 }
       );
     }
 
-    // Validate quantity is whole number
-    if (!Number.isInteger(quantity) || quantity <= 0) {
+    // Validate side
+    const sideResult = validateSide(body.side?.toLowerCase?.());
+    if (!sideResult.valid) {
       return NextResponse.json(
-        { success: false, error: 'Quantity must be a positive whole number' },
+        { success: false, error: sideResult.error },
         { status: 400 }
       );
     }
+    const side = sideResult.value;
+
+    // Validate quantity
+    const quantityResult = validatePositiveNumber(body.quantity, 'quantity', { integer: true });
+    if (!quantityResult.valid) {
+      return NextResponse.json(
+        { success: false, error: quantityResult.error },
+        { status: 400 }
+      );
+    }
+    const quantity = quantityResult.value;
+
+    // Validate type (default to limit for options)
+    const typeResult = validateOrderType(body.type?.toLowerCase?.() || 'limit');
+    if (!typeResult.valid) {
+      return NextResponse.json(
+        { success: false, error: typeResult.error },
+        { status: 400 }
+      );
+    }
+    const type = typeResult.value;
 
     // Level 1 validation (unless explicitly skipped)
     if (!skipValidation && side === 'sell') {
