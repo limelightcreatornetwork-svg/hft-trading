@@ -1,11 +1,12 @@
 import Alpaca from '@alpacahq/alpaca-trade-api';
+import { alpacaConfig } from './env';
 
-// Initialize Alpaca client
+// Initialize Alpaca client with validated environment variables
 const alpaca = new Alpaca({
-  keyId: process.env.ALPACA_API_KEY!,
-  secretKey: process.env.ALPACA_API_SECRET!,
-  paper: process.env.ALPACA_PAPER === 'true',
-  baseUrl: process.env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
+  keyId: alpacaConfig.apiKey,
+  secretKey: alpacaConfig.apiSecret,
+  paper: alpacaConfig.isPaper,
+  baseUrl: alpacaConfig.baseUrl,
 });
 
 export interface AlpacaAccount {
