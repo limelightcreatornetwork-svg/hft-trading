@@ -69,7 +69,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 - **File**: `src/lib/regime.ts`, `src/lib/confidence.ts`
 - **Issue**: Magic numbers for thresholds
 - **Fix**: Move to config/constants
-- **Status**: ⏳ TODO
+- **Status**: ✅ FIXED (Cycle 5) - Constants moved to constants.ts with env override support
 
 ### 9. Missing API Documentation
 - **Issue**: No OpenAPI/Swagger docs
@@ -119,6 +119,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | API authentication + rate limiting for critical endpoints | 2 | 2026-02-02 |
 | Test coverage: trade-manager module (21 tests) | 3 | 2026-02-02 |
 | React error boundaries for dashboard sections | 4 | 2026-02-02 |
+| Centralized configurable constants (regime, confidence, risk) | 5 | 2026-02-02 |
 
 ---
 
