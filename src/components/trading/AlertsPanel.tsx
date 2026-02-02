@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ interface AlertsPanelProps {
   maxAlerts?: number;
 }
 
-export function AlertsPanel({ 
+export function AlertsPanel({
   refreshInterval = 30000,
   maxAlerts = 10,
 }: AlertsPanelProps) {
@@ -29,7 +29,7 @@ export function AlertsPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     try {
       const response = await fetch(`/api/alerts?limit=${maxAlerts}`);
       if (!response.ok) throw new Error('Failed to fetch alerts');
@@ -42,7 +42,7 @@ export function AlertsPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [maxAlerts]);
 
   const dismissAlert = async (alertId: string) => {
     try {
@@ -75,7 +75,7 @@ export function AlertsPanel({
     fetchAlerts();
     const interval = setInterval(fetchAlerts, refreshInterval);
     return () => clearInterval(interval);
-  }, [refreshInterval]);
+  }, [fetchAlerts, refreshInterval]);
 
   const getAlertColor = (type: string) => {
     switch (type) {

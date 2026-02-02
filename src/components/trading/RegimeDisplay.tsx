@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -52,7 +52,7 @@ export function RegimeDisplay({ symbol, refreshInterval = 5000 }: RegimeDisplayP
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRegime = async () => {
+  const fetchRegime = useCallback(async () => {
     try {
       const response = await fetch(`/api/regime/${symbol}`);
       if (!response.ok) {
@@ -66,13 +66,13 @@ export function RegimeDisplay({ symbol, refreshInterval = 5000 }: RegimeDisplayP
     } finally {
       setLoading(false);
     }
-  };
+  }, [symbol]);
 
   useEffect(() => {
     fetchRegime();
     const interval = setInterval(fetchRegime, refreshInterval);
     return () => clearInterval(interval);
-  }, [symbol, refreshInterval]);
+  }, [fetchRegime, refreshInterval]);
 
   if (loading) {
     return (
