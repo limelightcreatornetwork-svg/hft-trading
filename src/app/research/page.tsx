@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 
 interface NewsItem {
   id: string;
@@ -29,48 +29,53 @@ interface TechnicalData {
   sma200: number;
 }
 
+// Demo watchlist symbols
+const DEFAULT_WATCHLIST = ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "META", "AMZN", "AMD"];
+
+// Generate demo data functions
+function generateDemoWatchlist(): WatchlistItem[] {
+  return DEFAULT_WATCHLIST.map((symbol) => ({
+    symbol,
+    price: 100 + Math.random() * 400,
+    change: (Math.random() - 0.5) * 20,
+    changePercent: (Math.random() - 0.5) * 10,
+    volume: Math.floor(Math.random() * 50000000),
+  }));
+}
+
+function generateDemoTechnicals(): TechnicalData[] {
+  return DEFAULT_WATCHLIST.map((symbol) => ({
+    symbol,
+    rsi: 30 + Math.random() * 40,
+    macd: (Math.random() - 0.5) * 5,
+    sma20: 100 + Math.random() * 400,
+    sma50: 100 + Math.random() * 400,
+    sma200: 100 + Math.random() * 400,
+  }));
+}
+
+function generateDemoNews(): NewsItem[] {
+  const now = new Date().toISOString();
+  return [
+    { id: "1", headline: "Tech Stocks Rally on AI Optimism", summary: "Major tech companies see gains as AI investments pay off.", source: "Reuters", url: "#", publishedAt: now, sentiment: 0.7 },
+    { id: "2", headline: "Fed Signals Potential Rate Cuts", summary: "Federal Reserve hints at possible rate reductions in coming months.", source: "Bloomberg", url: "#", publishedAt: now, sentiment: 0.5 },
+    { id: "3", headline: "NVIDIA Beats Earnings Expectations", summary: "Chip maker reports record revenue driven by AI demand.", source: "CNBC", url: "#", publishedAt: now, sentiment: 0.9 },
+    { id: "4", headline: "Market Volatility Expected to Rise", summary: "Analysts warn of increased volatility ahead of earnings season.", source: "MarketWatch", url: "#", publishedAt: now, sentiment: -0.3 },
+  ];
+}
+
 export default function ResearchPage() {
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [technicals, setTechnicals] = useState<TechnicalData[]>([]);
+  // Initialize state with demo data directly
+  const initialWatchlist = useMemo(() => generateDemoWatchlist(), []);
+  const initialTechnicals = useMemo(() => generateDemoTechnicals(), []);
+  const initialNews = useMemo(() => generateDemoNews(), []);
+
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>(initialWatchlist);
+  const [news] = useState<NewsItem[]>(initialNews);
+  const [technicals] = useState<TechnicalData[]>(initialTechnicals);
   const [newSymbol, setNewSymbol] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [activeTab, setActiveTab] = useState<"watchlist" | "screener" | "news">("watchlist");
-
-  // Demo watchlist data
-  const defaultWatchlist = ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "META", "AMZN", "AMD"];
-
-  useEffect(() => {
-    // Simulate loading market data
-    const demoData: WatchlistItem[] = defaultWatchlist.map((symbol) => ({
-      symbol,
-      price: 100 + Math.random() * 400,
-      change: (Math.random() - 0.5) * 20,
-      changePercent: (Math.random() - 0.5) * 10,
-      volume: Math.floor(Math.random() * 50000000),
-    }));
-    setWatchlist(demoData);
-
-    const demoTechnicals: TechnicalData[] = defaultWatchlist.map((symbol) => ({
-      symbol,
-      rsi: 30 + Math.random() * 40,
-      macd: (Math.random() - 0.5) * 5,
-      sma20: 100 + Math.random() * 400,
-      sma50: 100 + Math.random() * 400,
-      sma200: 100 + Math.random() * 400,
-    }));
-    setTechnicals(demoTechnicals);
-
-    const demoNews: NewsItem[] = [
-      { id: "1", headline: "Tech Stocks Rally on AI Optimism", summary: "Major tech companies see gains as AI investments pay off.", source: "Reuters", url: "#", publishedAt: new Date().toISOString(), sentiment: 0.7 },
-      { id: "2", headline: "Fed Signals Potential Rate Cuts", summary: "Federal Reserve hints at possible rate reductions in coming months.", source: "Bloomberg", url: "#", publishedAt: new Date().toISOString(), sentiment: 0.5 },
-      { id: "3", headline: "NVIDIA Beats Earnings Expectations", summary: "Chip maker reports record revenue driven by AI demand.", source: "CNBC", url: "#", publishedAt: new Date().toISOString(), sentiment: 0.9 },
-      { id: "4", headline: "Market Volatility Expected to Rise", summary: "Analysts warn of increased volatility ahead of earnings season.", source: "MarketWatch", url: "#", publishedAt: new Date().toISOString(), sentiment: -0.3 },
-    ];
-    setNews(demoNews);
-
-    setLoading(false);
-  }, []);
 
   const addToWatchlist = () => {
     if (newSymbol && !watchlist.find((w) => w.symbol === newSymbol.toUpperCase())) {

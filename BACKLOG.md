@@ -131,6 +131,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Auth for stats, intents, managed positions | 14 | 2026-02-02 |
 | Auth for alerts routes | 15 | 2026-02-02 |
 | Alpaca options utility tests (28 tests) | 16 | 2026-02-02 |
+| Lint fixes and type safety improvements | 17 | 2026-02-02 |
 
 ---
 

@@ -18,17 +18,25 @@ import {
 type SortField = 'signalStrength' | 'symbol' | 'changePercent' | 'relativeVolume' | 'rsi' | 'profitFactor' | 'timestamp';
 type SortDirection = 'asc' | 'desc';
 
+// Initialize with demo data
+function getInitialScannerData() {
+  const hits = generateDemoScannerHits(25);
+  return { hits, alerts: generateDemoAlerts(hits) };
+}
+
 export default function ScannerPage() {
-  const [scannerHits, setScannerHits] = useState<ScannerHit[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use lazy initialization to avoid calling generateDemoScannerHits on every render
+  const [initialData] = useState(getInitialScannerData);
+  const [scannerHits, setScannerHits] = useState<ScannerHit[]>(initialData.hits);
+  const [alerts, setAlerts] = useState<Alert[]>(initialData.alerts);
+  const [loading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [activeTab, setActiveTab] = useState<'scanner' | 'alerts' | 'backtest'>('scanner');
   const [searchFilter, setSearchFilter] = useState('');
   const [sortField, setSortField] = useState<SortField>('signalStrength');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [showConfig, setShowConfig] = useState(false);
-  
+
   const [config, setConfig] = useState<ScannerConfig>({
     timeframe: '5m',
     rsiOversold: 30,
@@ -41,14 +49,6 @@ export default function ScannerPage() {
     showBullish: true,
     showBearish: true,
   });
-
-  // Load initial data
-  useEffect(() => {
-    const hits = generateDemoScannerHits(25);
-    setScannerHits(hits);
-    setAlerts(generateDemoAlerts(hits));
-    setLoading(false);
-  }, []);
 
   // Auto-refresh simulation
   useEffect(() => {
@@ -80,7 +80,7 @@ export default function ScannerPage() {
 
   // Filter and sort hits
   const filteredHits = useMemo(() => {
-    let hits = scannerHits.filter(hit => {
+    const hits = scannerHits.filter(hit => {
       if (searchFilter && !hit.symbol.toLowerCase().includes(searchFilter.toLowerCase())) {
         return false;
       }
