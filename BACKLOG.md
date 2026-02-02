@@ -130,13 +130,14 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Auth for account, positions routes + div/0 fix | 13 | 2026-02-02 |
 | Auth for stats, intents, managed positions | 14 | 2026-02-02 |
 | Auth for alerts routes | 15 | 2026-02-02 |
+| Alpaca options utility tests (28 tests) | 16 | 2026-02-02 |
 
 ---
 
 ## Notes
 
-### Code Quality Metrics (Updated Cycle 11)
-- **Test Coverage**: 268 tests across 13 test suites
+### Code Quality Metrics (Updated Cycle 16)
+- **Test Coverage**: 296 tests across 14 test suites
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on critical endpoints
 - **Observability**: Audit logging + health checks

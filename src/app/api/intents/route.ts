@@ -139,6 +139,21 @@ export const POST = withAuth(async function POST(request: NextRequest) {
           status: order.status,
           submittedAt: order.submitted_at,
         };
+
+        // Audit log the order submission
+        await logAudit({
+          action: 'ORDER_SUBMITTED',
+          orderId: order.id,
+          symbol: order.symbol,
+          intentId: intent.id,
+          details: {
+            side,
+            quantity,
+            orderType,
+            limitPrice,
+            strategy,
+          },
+        });
       } catch (orderError) {
         console.error('Order submission error:', orderError);
         // Mark as approved but not executed

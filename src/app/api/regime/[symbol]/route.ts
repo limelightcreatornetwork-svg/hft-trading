@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  createRegimeDetector, 
+import {
+  createRegimeDetector,
   MarketDataInput,
   RegimeResult,
-  DEFAULT_REGIME_CONFIG 
 } from '@/lib/regime/index';
 import alpaca from '@/lib/alpaca';
 

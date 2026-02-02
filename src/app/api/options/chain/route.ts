@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getOptionsContracts, 
+import {
+  getOptionsContracts,
   getOptionsSnapshots,
-  parseOptionSymbol,
 } from '@/lib/alpaca-options';
 
 export interface OptionsChainEntry {
@@ -60,7 +59,7 @@ export async function GET(request: NextRequest) {
     const contracts = contractsResponse.option_contracts || [];
     
     // Get snapshots for quotes and greeks
-    let snapshots: Record<string, {
+    const snapshots: Record<string, {
       latestQuote?: { bid_price: number; ask_price: number; last_price?: number } | null;
       greeks?: { delta: number; gamma: number; theta: number; vega: number; implied_volatility: number } | null;
     }> = {};

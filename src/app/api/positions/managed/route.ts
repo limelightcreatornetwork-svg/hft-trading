@@ -38,16 +38,21 @@ export const GET = withAuth(async function GET(request: NextRequest) {
       positions = [...active, ...closed];
     }
     
-    const response: any = {
+    const response: {
+      positions: typeof positions;
+      count: number;
+      status: string;
+      stats?: Awaited<ReturnType<typeof getTradingStats>>;
+    } = {
       positions,
       count: positions.length,
       status,
     };
-    
+
     if (includeStats) {
       response.stats = await getTradingStats();
     }
-    
+
     return NextResponse.json(response);
     
   } catch (error) {

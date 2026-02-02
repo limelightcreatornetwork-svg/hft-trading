@@ -11,8 +11,30 @@ import { TradingStats } from "@/components/trading/TradingStats";
 import { ConfidenceTradeForm } from "@/components/trading/ConfidenceTradeForm";
 import { ConfidenceIndicator } from "@/components/trading/ConfidenceIndicator";
 
+interface AccountData {
+  success: boolean;
+  data: {
+    id: string;
+    status: string;
+    currency: string;
+    buyingPower: number;
+    cash: number;
+    portfolioValue: number;
+    equity: number;
+    lastEquity: number;
+    longMarketValue: number;
+    shortMarketValue: number;
+    initialMargin: number;
+    maintenanceMargin: number;
+    daytradeCount: number;
+    patternDayTrader: boolean;
+    dailyPL: number;
+    dailyPLPercent: number;
+  };
+}
+
 export default function DashboardPage() {
-  const [account, setAccount] = useState<any>(null);
+  const [account, setAccount] = useState<AccountData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'positions' | 'trade' | 'history'>('positions');
   
@@ -36,8 +58,8 @@ export default function DashboardPage() {
     fetchAccount();
   }, []);
 
-  const portfolioValue = account?.portfolio_value || 100000;
-  const dayPL = account?.equity ? (parseFloat(account.equity) - parseFloat(account.last_equity || account.equity)) : 0;
+  const portfolioValue = account?.data?.portfolioValue || 100000;
+  const dayPL = account?.data?.dailyPL || 0;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -57,7 +79,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription>Portfolio Value</CardDescription>
             <CardTitle className="text-2xl">
-              ${loading ? '---' : parseFloat(portfolioValue).toLocaleString()}
+              ${loading ? '---' : portfolioValue.toLocaleString()}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -73,7 +95,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription>Buying Power</CardDescription>
             <CardTitle className="text-2xl">
-              ${loading ? '---' : parseFloat(account?.buying_power || 0).toLocaleString()}
+              ${loading ? '---' : (account?.data?.buyingPower || 0).toLocaleString()}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -81,7 +103,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription>Cash</CardDescription>
             <CardTitle className="text-2xl">
-              ${loading ? '---' : parseFloat(account?.cash || 0).toLocaleString()}
+              ${loading ? '---' : (account?.data?.cash || 0).toLocaleString()}
             </CardTitle>
           </CardHeader>
         </Card>
