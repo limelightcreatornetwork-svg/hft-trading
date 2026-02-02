@@ -359,3 +359,28 @@ model TechnicalData {
   @@unique([symbol, timeframe, timestamp])
   @@index([symbol])
 }
+
+// ============================================
+// AUDIT LOGGING
+// ============================================
+
+// Audit Log for security and compliance tracking
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // ORDER_SUBMITTED, KILL_SWITCH_ACTIVATED, etc.
+  userId      String?  // Optional user identifier
+  clientId    String?  // API client identifier
+  symbol      String?  // Related trading symbol
+  orderId     String?  // Related order ID
+  intentId    String?  // Related intent ID
+  positionId  String?  // Related position ID
+  details     String?  // JSON string with additional details
+  ipAddress   String?  // Client IP address
+  userAgent   String?  // Client user agent
+  createdAt   DateTime @default(now())
+
+  @@index([action])
+  @@index([userId])
+  @@index([symbol])
+  @@index([createdAt])
+}
