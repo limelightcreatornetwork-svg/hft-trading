@@ -1,0 +1,559 @@
+/**
+ * Trade Manager - Handles TP/SL/Time Stops and Alerts
+ * 
+ * Manages:
+ * - Take profit and stop loss monitoring
+ * - Time-based stop outs
+ * - Trailing stops
+ * - Alert generation and checking
+ */
+
+import { prisma } from './db';
+import alpaca from './alpaca';
+import { calculateConfidence, getSuggestedLevels, ConfidenceScore } from './confidence';
+
+export interface TradeRequest {
+  symbol: string;
+  side: 'buy' | 'sell';
+  quantity: number;
+  entryPrice: number;
+  takeProfitPct?: number;   // Override default
+  stopLossPct?: number;     // Override default
+  timeStopHours?: number;   // Override default (4 hours)
+  trailingStopPct?: number; // Optional trailing stop
+}
+
+export interface ManagedPositionWithAlerts {
+  id: string;
+  symbol: string;
+  side: string;
+  quantity: number;
+  entryPrice: number;
+  confidence: number;
+  takeProfitPct: number;
+  stopLossPct: number;
+  takeProfitPrice: number;
+  stopLossPrice: number;
+  timeStopHours: number;
+  trailingStopPct: number | null;
+  highWaterMark: number | null;
+  enteredAt: Date;
+  status: string;
+  hoursRemaining: number;
+  currentPrice?: number;
+  currentPnl?: number;
+  currentPnlPct?: number;
+  alerts: {
+    id: string;
+    type: string;
+    message: string;
+    triggered: boolean;
+    triggeredAt: Date | null;
+  }[];
+}
+
+export interface AlertCheckResult {
+  positionId: string;
+  symbol: string;
+  alerts: {
+    type: string;
+    message: string;
+    triggered: boolean;
+  }[];
+}
+
+// Default time stop (hours)
+const DEFAULT_TIME_STOP_HOURS = 4;
+
+/**
+ * Create a managed position with confidence scoring
+ */
+export async function createManagedPosition(request: TradeRequest): Promise<{
+  position: ManagedPositionWithAlerts;
+  confidence: ConfidenceScore;
+  skipped: boolean;
+  reason?: string;
+}> {
+  // Calculate confidence score
+  const confidence = await calculateConfidence({
+    symbol: request.symbol,
+    side: request.side,
+    entryPrice: request.entryPrice,
+  });
+  
+  // Skip if confidence is too low
+  if (confidence.recommendation === 'SKIP') {
+    return {
+      position: null as any,
+      confidence,
+      skipped: true,
+      reason: `Trade skipped due to low confidence (${confidence.total}/10): ${confidence.reasoning.join(', ')}`,
+    };
+  }
+  
+  // Get suggested TP/SL levels if not provided
+  const suggestedLevels = await getSuggestedLevels(request.symbol, request.entryPrice, request.side);
+  
+  const takeProfitPct = request.takeProfitPct ?? suggestedLevels.takeProfitPct;
+  const stopLossPct = request.stopLossPct ?? suggestedLevels.stopLossPct;
+  const timeStopHours = request.timeStopHours ?? DEFAULT_TIME_STOP_HOURS;
+  
+  // Create the managed position
+  const position = await prisma.managedPosition.create({
+    data: {
+      symbol: request.symbol.toUpperCase(),
+      side: request.side,
+      quantity: request.quantity,
+      entryPrice: request.entryPrice,
+      confidence: confidence.total,
+      takeProfitPct,
+      stopLossPct,
+      timeStopHours,
+      trailingStopPct: request.trailingStopPct || null,
+      highWaterMark: request.entryPrice,
+      status: 'active',
+      // Store confidence breakdown
+      technicalScore: confidence.technical,
+      riskRewardScore: confidence.riskReward,
+      marketCondScore: confidence.marketConditions,
+      timeOfDayScore: confidence.timeOfDay,
+    },
+    include: {
+      alerts: true,
+    },
+  });
+  
+  // Calculate derived values
+  const multiplier = request.side === 'buy' ? 1 : -1;
+  const takeProfitPrice = request.entryPrice * (1 + multiplier * takeProfitPct / 100);
+  const stopLossPrice = request.entryPrice * (1 - multiplier * stopLossPct / 100);
+  const hoursRemaining = timeStopHours;
+  
+  return {
+    position: {
+      ...position,
+      takeProfitPrice,
+      stopLossPrice,
+      hoursRemaining,
+    },
+    confidence,
+    skipped: false,
+  };
+}
+
+/**
+ * Get all active managed positions with current status
+ */
+export async function getActiveManagedPositions(): Promise<ManagedPositionWithAlerts[]> {
+  const positions = await prisma.managedPosition.findMany({
+    where: { status: 'active' },
+    include: { alerts: true },
+    orderBy: { enteredAt: 'desc' },
+  });
+  
+  // Fetch current prices for all symbols
+  const symbols = [...new Set(positions.map(p => p.symbol))];
+  const prices: Record<string, number> = {};
+  
+  for (const symbol of symbols) {
+    try {
+      const quote = await alpaca.getLatestQuote(symbol);
+      prices[symbol] = (quote.BidPrice + quote.AskPrice) / 2 || quote.AskPrice || 0;
+    } catch (error) {
+      console.error(`Error fetching price for ${symbol}:`, error);
+      prices[symbol] = 0;
+    }
+  }
+  
+  return positions.map(p => {
+    const multiplier = p.side === 'buy' ? 1 : -1;
+    const takeProfitPrice = p.entryPrice * (1 + multiplier * p.takeProfitPct / 100);
+    const stopLossPrice = p.entryPrice * (1 - multiplier * p.stopLossPct / 100);
+    
+    const now = new Date();
+    const hoursElapsed = (now.getTime() - p.enteredAt.getTime()) / (1000 * 60 * 60);
+    const hoursRemaining = Math.max(0, p.timeStopHours - hoursElapsed);
+    
+    const currentPrice = prices[p.symbol] || p.entryPrice;
+    const priceDiff = currentPrice - p.entryPrice;
+    const currentPnl = priceDiff * p.quantity * multiplier;
+    const currentPnlPct = (priceDiff / p.entryPrice) * 100 * multiplier;
+    
+    return {
+      ...p,
+      takeProfitPrice,
+      stopLossPrice,
+      hoursRemaining,
+      currentPrice,
+      currentPnl,
+      currentPnlPct,
+    };
+  });
+}
+
+/**
+ * Check all active positions for TP/SL/time stop triggers
+ */
+export async function checkAllPositions(): Promise<AlertCheckResult[]> {
+  const positions = await getActiveManagedPositions();
+  const results: AlertCheckResult[] = [];
+  
+  for (const position of positions) {
+    const alerts = await checkPosition(position);
+    if (alerts.length > 0) {
+      results.push({
+        positionId: position.id,
+        symbol: position.symbol,
+        alerts,
+      });
+    }
+  }
+  
+  return results;
+}
+
+/**
+ * Check a single position for triggers
+ */
+async function checkPosition(position: ManagedPositionWithAlerts): Promise<{
+  type: string;
+  message: string;
+  triggered: boolean;
+}[]> {
+  const alerts: { type: string; message: string; triggered: boolean }[] = [];
+  const currentPrice = position.currentPrice || position.entryPrice;
+  const multiplier = position.side === 'buy' ? 1 : -1;
+  
+  // Check Take Profit
+  const tpHit = multiplier === 1 
+    ? currentPrice >= position.takeProfitPrice
+    : currentPrice <= position.takeProfitPrice;
+    
+  if (tpHit) {
+    const alert = await createOrUpdateAlert(position.id, 'TP_HIT', 
+      `Take profit hit for ${position.symbol}! Price: $${currentPrice.toFixed(2)}, Target: $${position.takeProfitPrice.toFixed(2)}`);
+    if (alert) {
+      alerts.push({ type: 'TP_HIT', message: alert.message, triggered: true });
+      // Close the position
+      await closePosition(position.id, currentPrice, 'TP_HIT');
+    }
+  }
+  
+  // Check Stop Loss
+  const slHit = multiplier === 1
+    ? currentPrice <= position.stopLossPrice
+    : currentPrice >= position.stopLossPrice;
+    
+  if (slHit && !tpHit) {
+    const alert = await createOrUpdateAlert(position.id, 'SL_HIT',
+      `Stop loss hit for ${position.symbol}! Price: $${currentPrice.toFixed(2)}, Stop: $${position.stopLossPrice.toFixed(2)}`);
+    if (alert) {
+      alerts.push({ type: 'SL_HIT', message: alert.message, triggered: true });
+      // Close the position
+      await closePosition(position.id, currentPrice, 'SL_HIT');
+    }
+  }
+  
+  // Check Trailing Stop
+  if (position.trailingStopPct && position.highWaterMark) {
+    const trailingStopPrice = position.highWaterMark * (1 - multiplier * position.trailingStopPct / 100);
+    
+    // Update high water mark if price moved favorably
+    if ((multiplier === 1 && currentPrice > position.highWaterMark) ||
+        (multiplier === -1 && currentPrice < position.highWaterMark)) {
+      await prisma.managedPosition.update({
+        where: { id: position.id },
+        data: { highWaterMark: currentPrice },
+      });
+    }
+    
+    // Check if trailing stop triggered
+    const trailingHit = multiplier === 1
+      ? currentPrice <= trailingStopPrice
+      : currentPrice >= trailingStopPrice;
+      
+    if (trailingHit && !tpHit && !slHit) {
+      const alert = await createOrUpdateAlert(position.id, 'TRAILING_TRIGGERED',
+        `Trailing stop triggered for ${position.symbol}! Price: $${currentPrice.toFixed(2)}, Trailing Stop: $${trailingStopPrice.toFixed(2)}`);
+      if (alert) {
+        alerts.push({ type: 'TRAILING_TRIGGERED', message: alert.message, triggered: true });
+        await closePosition(position.id, currentPrice, 'TRAILING_STOP');
+      }
+    }
+  }
+  
+  // Check Time Stop
+  if (position.hoursRemaining <= 0 && !tpHit && !slHit) {
+    const alert = await createOrUpdateAlert(position.id, 'TIME_STOP',
+      `Time stop reached for ${position.symbol}! Position held for ${position.timeStopHours} hours without hitting TP or SL.`);
+    if (alert) {
+      alerts.push({ type: 'TIME_STOP', message: alert.message, triggered: true });
+      await closePosition(position.id, currentPrice, 'TIME_STOP');
+    }
+  } else if (position.hoursRemaining <= 1 && position.hoursRemaining > 0) {
+    // Warning: less than 1 hour remaining
+    const existingWarning = position.alerts.find(a => a.type === 'TIME_WARNING' && !a.triggered);
+    if (!existingWarning) {
+      await createOrUpdateAlert(position.id, 'TIME_WARNING',
+        `Time stop warning for ${position.symbol}! ${position.hoursRemaining.toFixed(1)} hours remaining.`, false);
+      alerts.push({ 
+        type: 'TIME_WARNING', 
+        message: `Less than 1 hour until time stop for ${position.symbol}`,
+        triggered: false,
+      });
+    }
+  }
+  
+  // Check for confidence drop (re-evaluate market conditions)
+  const newConfidence = await calculateConfidence({
+    symbol: position.symbol,
+    side: position.side as 'buy' | 'sell',
+    entryPrice: position.entryPrice,
+  });
+  
+  if (newConfidence.total <= 3 && position.confidence >= 6) {
+    const alert = await createOrUpdateAlert(position.id, 'REVIEW',
+      `Market conditions changed for ${position.symbol}! Confidence dropped from ${position.confidence} to ${newConfidence.total}. Review position.`);
+    if (alert) {
+      alerts.push({ type: 'REVIEW', message: alert.message, triggered: false });
+    }
+  }
+  
+  return alerts;
+}
+
+/**
+ * Create or update an alert
+ */
+async function createOrUpdateAlert(
+  positionId: string, 
+  type: string, 
+  message: string,
+  triggered: boolean = true
+): Promise<{ id: string; message: string } | null> {
+  // Check if alert already exists and was triggered
+  const existingAlert = await prisma.alert.findFirst({
+    where: { 
+      positionId, 
+      type,
+      triggered: true,
+    },
+  });
+  
+  if (existingAlert) {
+    return null; // Already triggered this type of alert
+  }
+  
+  const alert = await prisma.alert.create({
+    data: {
+      positionId,
+      type,
+      message,
+      triggered,
+      triggeredAt: triggered ? new Date() : null,
+    },
+  });
+  
+  return alert;
+}
+
+/**
+ * Close a position
+ */
+async function closePosition(positionId: string, closePrice: number, reason: string): Promise<void> {
+  const position = await prisma.managedPosition.findUnique({
+    where: { id: positionId },
+  });
+  
+  if (!position) return;
+  
+  const multiplier = position.side === 'buy' ? 1 : -1;
+  const priceDiff = closePrice - position.entryPrice;
+  const pnl = priceDiff * position.quantity * multiplier;
+  const pnlPct = (priceDiff / position.entryPrice) * 100 * multiplier;
+  
+  await prisma.managedPosition.update({
+    where: { id: positionId },
+    data: {
+      status: 'closed',
+      closedAt: new Date(),
+      closePrice,
+      closeReason: reason,
+      pnl,
+      pnlPct,
+    },
+  });
+}
+
+/**
+ * Get pending (untriggered) alerts
+ */
+export async function getPendingAlerts(): Promise<{
+  id: string;
+  positionId: string;
+  symbol: string;
+  type: string;
+  message: string;
+  createdAt: Date;
+}[]> {
+  const alerts = await prisma.alert.findMany({
+    where: { 
+      triggered: false,
+      dismissed: false,
+    },
+    include: {
+      position: {
+        select: { symbol: true },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  
+  return alerts.map(a => ({
+    id: a.id,
+    positionId: a.positionId,
+    symbol: a.position.symbol,
+    type: a.type,
+    message: a.message,
+    createdAt: a.createdAt,
+  }));
+}
+
+/**
+ * Get all alerts (including triggered)
+ */
+export async function getAllAlerts(limit: number = 50): Promise<{
+  id: string;
+  positionId: string;
+  symbol: string;
+  type: string;
+  message: string;
+  triggered: boolean;
+  triggeredAt: Date | null;
+  createdAt: Date;
+}[]> {
+  const alerts = await prisma.alert.findMany({
+    where: { dismissed: false },
+    include: {
+      position: {
+        select: { symbol: true },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+  
+  return alerts.map(a => ({
+    id: a.id,
+    positionId: a.positionId,
+    symbol: a.position.symbol,
+    type: a.type,
+    message: a.message,
+    triggered: a.triggered,
+    triggeredAt: a.triggeredAt,
+    createdAt: a.createdAt,
+  }));
+}
+
+/**
+ * Dismiss an alert
+ */
+export async function dismissAlert(alertId: string): Promise<void> {
+  await prisma.alert.update({
+    where: { id: alertId },
+    data: { 
+      dismissed: true,
+      dismissedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Manually close a position
+ */
+export async function manualClosePosition(positionId: string, closePrice: number): Promise<void> {
+  await closePosition(positionId, closePrice, 'MANUAL');
+}
+
+/**
+ * Get position history (closed positions)
+ */
+export async function getPositionHistory(limit: number = 50): Promise<ManagedPositionWithAlerts[]> {
+  const positions = await prisma.managedPosition.findMany({
+    where: { status: 'closed' },
+    include: { alerts: true },
+    orderBy: { closedAt: 'desc' },
+    take: limit,
+  });
+  
+  return positions.map(p => {
+    const multiplier = p.side === 'buy' ? 1 : -1;
+    const takeProfitPrice = p.entryPrice * (1 + multiplier * p.takeProfitPct / 100);
+    const stopLossPrice = p.entryPrice * (1 - multiplier * p.stopLossPct / 100);
+    
+    return {
+      ...p,
+      takeProfitPrice,
+      stopLossPrice,
+      hoursRemaining: 0,
+    };
+  });
+}
+
+/**
+ * Get trading statistics
+ */
+export async function getTradingStats(): Promise<{
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRate: number;
+  totalPnl: number;
+  avgWin: number;
+  avgLoss: number;
+  avgConfidence: number;
+  byCloseReason: Record<string, number>;
+}> {
+  const closedPositions = await prisma.managedPosition.findMany({
+    where: { status: 'closed' },
+    select: {
+      pnl: true,
+      confidence: true,
+      closeReason: true,
+    },
+  });
+  
+  const winningTrades = closedPositions.filter(p => (p.pnl || 0) > 0);
+  const losingTrades = closedPositions.filter(p => (p.pnl || 0) <= 0);
+  
+  const totalPnl = closedPositions.reduce((sum, p) => sum + (p.pnl || 0), 0);
+  const avgWin = winningTrades.length > 0
+    ? winningTrades.reduce((sum, p) => sum + (p.pnl || 0), 0) / winningTrades.length
+    : 0;
+  const avgLoss = losingTrades.length > 0
+    ? losingTrades.reduce((sum, p) => sum + (p.pnl || 0), 0) / losingTrades.length
+    : 0;
+  const avgConfidence = closedPositions.length > 0
+    ? closedPositions.reduce((sum, p) => sum + p.confidence, 0) / closedPositions.length
+    : 0;
+  
+  const byCloseReason: Record<string, number> = {};
+  closedPositions.forEach(p => {
+    const reason = p.closeReason || 'UNKNOWN';
+    byCloseReason[reason] = (byCloseReason[reason] || 0) + 1;
+  });
+  
+  return {
+    totalTrades: closedPositions.length,
+    winningTrades: winningTrades.length,
+    losingTrades: losingTrades.length,
+    winRate: closedPositions.length > 0 
+      ? (winningTrades.length / closedPositions.length) * 100 
+      : 0,
+    totalPnl,
+    avgWin,
+    avgLoss,
+    avgConfidence,
+    byCloseReason,
+  };
+}

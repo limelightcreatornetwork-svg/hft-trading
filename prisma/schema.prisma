@@ -215,6 +215,64 @@ model PortfolioGreeks {
 }
 
 // ============================================
+// CONFIDENCE-BASED TRADING MODELS
+// ============================================
+
+// Managed Position with confidence scoring and TP/SL
+model ManagedPosition {
+  id            String   @id @default(cuid())
+  symbol        String
+  side          String   // buy/sell
+  quantity      Float
+  entryPrice    Float
+  confidence    Int      // 1-10
+  takeProfitPct Float    // e.g., 2.0 for 2%
+  stopLossPct   Float    // e.g., 1.0 for 1%
+  timeStopHours Float    // e.g., 4.0 for 4 hours
+  trailingStopPct Float? // Optional trailing stop percentage
+  highWaterMark Float?   // Highest price reached (for trailing stop)
+  enteredAt     DateTime @default(now())
+  closedAt      DateTime?
+  closePrice    Float?
+  closeReason   String?  // TP_HIT, SL_HIT, TIME_STOP, MANUAL, TRAILING_STOP
+  status        String   @default("active") // active/closed/alerted
+  pnl           Float?
+  pnlPct        Float?
+  alerts        Alert[]
+  
+  // Confidence scoring breakdown (stored for analysis)
+  technicalScore    Int?
+  riskRewardScore   Int?
+  marketCondScore   Int?
+  timeOfDayScore    Int?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([symbol])
+  @@index([status])
+  @@index([enteredAt])
+}
+
+// Alert for managed positions
+model Alert {
+  id          String   @id @default(cuid())
+  positionId  String
+  type        String   // TP_HIT, SL_HIT, TIME_STOP, REVIEW, TRAILING_TRIGGERED
+  message     String
+  triggered   Boolean  @default(false)
+  triggeredAt DateTime?
+  dismissed   Boolean  @default(false)
+  dismissedAt DateTime?
+  position    ManagedPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([positionId])
+  @@index([triggered])
+  @@index([type])
+}
+
+// ============================================
 // RESEARCH, STRATEGY & ANALYSIS MODELS
 // ============================================
 
