@@ -126,6 +126,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Health check endpoint for monitoring | 9 | 2026-02-02 |
 | Health check tests + final cleanup | 10 | 2026-02-02 |
 | Alpaca API client tests (27 tests) | 11 | 2026-02-02 |
+| Risk API auth + options type safety | 12 | 2026-02-02 |
 
 ---
 

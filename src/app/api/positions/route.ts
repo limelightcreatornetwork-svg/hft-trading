@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getPositions } from '@/lib/alpaca';
+import { withAuth } from '@/lib/api-auth';
 
 // Disable caching - always fetch fresh data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   try {
     const positions = await getPositions();
     
@@ -54,4 +55,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
