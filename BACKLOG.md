@@ -27,13 +27,16 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 
 ### 3. Missing Test Coverage
 - **Affected files**: 
-  - `src/lib/trade-manager.ts` (0 tests)
-  - `src/lib/confidence.ts` (0 tests)
-  - `src/lib/risk-engine.ts` (0 tests)
-  - `src/lib/alpaca.ts` (0 tests)
-  - All API routes (0 tests)
+  - `src/lib/trade-manager.ts` (0 tests) - needs tests
+  - `src/lib/confidence.ts` ✅ (15 tests)
+  - `src/lib/risk-engine.ts` ✅ (15 tests)
+  - `src/lib/env.ts` ✅ (19 tests)
+  - `src/lib/validation.ts` ✅ (36 tests)
+  - `src/lib/api-auth.ts` ✅ (13 tests)
+  - `src/lib/alpaca.ts` (0 tests) - needs tests
+  - All API routes (0 tests) - needs integration tests
 - **Impact**: Regressions can go undetected
-- **Status**: 🔄 IN PROGRESS
+- **Status**: 🔄 IN PROGRESS (139/200+ target)
 
 ### 4. No API Authentication
 - **Files**: All `src/app/api/*/route.ts`
@@ -46,7 +49,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 - **Files**: `src/lib/alpaca.ts`, `src/lib/db.ts`
 - **Issue**: Uses `!` assertion without validation
 - **Impact**: Cryptic errors if env vars missing
-- **Status**: ⏳ TODO
+- **Status**: ✅ FIXED (Cycle 3) - Added env.ts with validation utilities
 
 ---
 
@@ -60,7 +63,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 ### 7. No Request Rate Limiting
 - **Files**: API routes
 - **Impact**: DoS vulnerability
-- **Status**: ⏳ TODO
+- **Status**: ✅ FIXED (Cycle 5) - Added rate limiting in api-auth.ts
 
 ### 8. Hardcoded Thresholds
 - **File**: `src/lib/regime.ts`, `src/lib/confidence.ts`
@@ -84,7 +87,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 - Add architecture diagram
 - Document API endpoints
 - Setup instructions
-- **Status**: ⏳ TODO
+- **Status**: ✅ DONE (Cycle 6)
 
 ### 12. Add WebSocket Support
 - Real-time price updates
@@ -106,6 +109,13 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 |------|-------|------|
 | Type safety fix - null position return | 1 | 2026-02-02 |
 | Performance fix - parallel price fetching | 1 | 2026-02-02 |
+| Test coverage: confidence module (15 tests) | 2 | 2026-02-02 |
+| Test coverage: risk-engine module (15 tests) | 2 | 2026-02-02 |
+| Environment variable validation utilities | 3 | 2026-02-02 |
+| Input validation utilities | 4 | 2026-02-02 |
+| API authentication middleware | 5 | 2026-02-02 |
+| Rate limiting | 5 | 2026-02-02 |
+| Comprehensive README documentation | 6 | 2026-02-02 |
 | API authentication + rate limiting for critical endpoints | 2 | 2026-02-02 |
 
 ---
