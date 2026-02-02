@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { activateKillSwitch, deactivateKillSwitch, isKillSwitchActive, getRiskConfig } from '@/lib/risk-engine';
 import { cancelAllOrders, getOrders } from '@/lib/alpaca';
+import { withAuth } from '@/lib/api-auth';
 
 // Disable caching - always fetch fresh data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   try {
     const config = await getRiskConfig();
     const active = isKillSwitchActive() || !config.tradingEnabled;

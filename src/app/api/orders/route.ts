@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrders, submitOrder, cancelOrder } from '@/lib/alpaca';
 import { checkIntent } from '@/lib/risk-engine';
+import { withAuth } from '@/lib/api-auth';
 
 // Disable caching - always fetch fresh data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const status = (searchParams.get('status') as 'open' | 'closed' | 'all') || 'open';
@@ -45,16 +46,16 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Orders GET API error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch orders' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch orders'
       },
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { symbol, quantity, side, type, timeInForce, limitPrice, stopPrice, skipRiskCheck, skipRegimeCheck } = body;
@@ -116,16 +117,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Orders POST API error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to submit order' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to submit order'
       },
       { status: 500 }
     );
   }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withAuth(async function DELETE(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const orderId = searchParams.get('id');
@@ -146,11 +147,11 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('Orders DELETE API error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to cancel order' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to cancel order'
       },
       { status: 500 }
     );
   }
-}
+});

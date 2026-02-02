@@ -21,8 +21,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createManagedPosition, TradeRequest } from '@/lib/trade-manager';
 import { calculateConfidence, getSuggestedLevels } from '@/lib/confidence';
+import { withAuth } from '@/lib/api-auth';
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * GET /api/trade?symbol=XYZ&side=buy&entryPrice=100
