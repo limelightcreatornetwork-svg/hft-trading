@@ -122,6 +122,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Centralized configurable constants (regime, confidence, risk) | 5 | 2026-02-02 |
 | Audit logging system with buffered writes | 6 | 2026-02-02 |
 | Test coverage: audit-log module (23 tests) | 7 | 2026-02-02 |
+| Options orders auth + audit logging | 8 | 2026-02-02 |
 
 ---
 

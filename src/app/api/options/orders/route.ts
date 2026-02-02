@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  submitOptionsOrder, 
+import {
+  submitOptionsOrder,
   parseOptionSymbol,
   canSellCoveredCall,
   canSellCashSecuredPut,
 } from '@/lib/alpaca-options';
 import { getPositions, getAccount } from '@/lib/alpaca';
+import { withAuth } from '@/lib/api-auth';
+import { audit } from '@/lib/audit-log';
 
 /**
  * POST /api/options/orders
  * Submit an options order
- * 
+ *
  * Level 1 supported strategies:
  * - Covered Call: Sell call against owned shares
  * - Cash-Secured Put: Sell put with cash collateral
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { 
@@ -113,12 +115,25 @@ export async function POST(request: NextRequest) {
       limit_price: limitPrice,
     });
 
+    // Audit log the options order
+    await audit.orderSubmitted(order.id || 'unknown', symbol.toUpperCase(), {
+      type: 'options',
+      side,
+      quantity,
+      strategy: strategy || (side === 'sell' ?
+        (parsed.type === 'call' ? 'covered_call' : 'cash_secured_put') :
+        'buy_option'),
+      underlying: parsed.rootSymbol,
+      expiration: parsed.expirationDate,
+      strike: parsed.strikePrice,
+    });
+
     return NextResponse.json({
       success: true,
       data: {
         order,
-        strategy: strategy || (side === 'sell' ? 
-          (parsed.type === 'call' ? 'covered_call' : 'cash_secured_put') : 
+        strategy: strategy || (side === 'sell' ?
+          (parsed.type === 'call' ? 'covered_call' : 'cash_secured_put') :
           'buy_option'),
         parsed: {
           underlying: parsed.rootSymbol,
@@ -131,20 +146,20 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Options order API error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to submit options order' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to submit options order'
       },
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * GET /api/options/orders
  * Get open options orders
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status') || 'open';
@@ -218,11 +233,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Options orders GET API error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch options orders' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch options orders'
       },
       { status: 500 }
     );
   }
-}
+});
