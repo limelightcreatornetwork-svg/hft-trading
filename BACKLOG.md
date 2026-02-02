@@ -133,6 +133,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Alpaca options utility tests (28 tests) | 16 | 2026-02-02 |
 | Lint fixes and type safety improvements | 17 | 2026-02-02 |
 | React hook lint errors fixed (research/scanner) | 18 | 2026-02-02 |
+| Unused variable cleanup + type safety | 19 | 2026-02-02 |
 
 ---
 

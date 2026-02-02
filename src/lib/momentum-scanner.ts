@@ -155,13 +155,14 @@ export function calculateATR(highs: number[], lows: number[], closes: number[], 
 }
 
 // Detect market regime
-export function detectRegime(prices: number[], atr: number): 'trending_up' | 'trending_down' | 'ranging' {
+export function detectRegime(prices: number[], _atr: number): 'trending_up' | 'trending_down' | 'ranging' {
   if (prices.length < 50) return 'ranging';
   
   const sma20 = calculateSMA(prices, 20);
   const sma50 = calculateSMA(prices, 50);
   const currentPrice = prices[prices.length - 1];
-  const volatility = atr / currentPrice;
+  // TODO: Use volatility for regime detection threshold adjustment
+  // const volatility = atr / currentPrice;
   
   // Strong trend if price is significantly above/below both MAs
   const priceAboveMAs = currentPrice > sma20 && currentPrice > sma50;

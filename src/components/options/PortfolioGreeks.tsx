@@ -114,8 +114,8 @@ export function PortfolioGreeks({ positions: propPositions, showDetails = true }
     { delta: 0, gamma: 0, theta: 0, vega: 0, totalValue: 0, totalPL: 0 }
   );
 
-  // Calculate beta-weighted delta (assuming SPY beta ~1)
-  const betaWeightedDelta = portfolioGreeks.delta; // Would need SPY price for proper calculation
+  // TODO: Calculate beta-weighted delta (would need SPY price for proper calculation)
+  // const betaWeightedDelta = portfolioGreeks.delta;
 
   // Risk assessment
   const getRiskLevel = () => {

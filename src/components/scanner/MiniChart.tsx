@@ -39,7 +39,6 @@ export function MiniChart({
     
     // Generate volume bars
     const maxVol = Math.max(...volumeData);
-    const volBarWidth = chartWidth / volumeData.length - 1;
     const bars = volumeData.map((vol, i) => {
       const x = padding + (i / volumeData.length) * chartWidth;
       const barHeight = (vol / maxVol) * 8;

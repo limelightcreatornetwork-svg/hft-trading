@@ -274,20 +274,11 @@ export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResul
   // Check 5: Daily loss limit
   let dailyPL = 0;
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const todayIntents = await prisma.intent.findMany({
-      where: {
-        createdAt: { gte: today },
-        status: 'EXECUTED',
-      },
-    });
-    
-    // This is a simplified check - in production you'd calculate actual P&L
-    dailyPL = 0; // Would calculate from fills
-  } catch (error) {
-    console.error('Error checking daily P&L:', error);
+    // TODO: Implement actual daily P&L calculation from executed orders
+    // Would query today's intents and calculate from fills
+    dailyPL = 0;
+  } catch (err) {
+    console.error('Error checking daily P&L:', err);
   }
 
   const dailyLossOk = Math.abs(dailyPL) < config.maxDailyLoss;
@@ -338,7 +329,7 @@ export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResul
         };
         checks.push(sizeWarning);
       }
-    } catch (error) {
+    } catch {
       // If regime check fails, add a warning but don't block
       const regimeCheck = {
         name: 'regime_check',
