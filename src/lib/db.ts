@@ -7,14 +7,16 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Prisma 7+ requires accelerateUrl for the local Prisma Postgres dev server
 const databaseUrl = process.env.DATABASE_URL;
+
+// Only use accelerateUrl if it's a Prisma Accelerate URL (starts with prisma://)
+const isPrismaAccelerate = databaseUrl?.startsWith('prisma://') || databaseUrl?.startsWith('prisma+postgres://');
 
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    accelerateUrl: databaseUrl,
+    ...(isPrismaAccelerate && databaseUrl ? { accelerateUrl: databaseUrl } : {}),
   });
 
 if (process.env.NODE_ENV !== 'production') {
