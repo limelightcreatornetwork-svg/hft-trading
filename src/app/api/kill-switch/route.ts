@@ -23,16 +23,16 @@ export const GET = withAuth(async function GET() {
   } catch (error) {
     console.error('Kill switch GET API error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to get kill switch status' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get kill switch status'
       },
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action, cancelOrders = true } = body;
@@ -86,11 +86,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Kill switch POST API error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to toggle kill switch' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to toggle kill switch'
       },
       { status: 500 }
     );
   }
-}
+});

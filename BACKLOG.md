@@ -40,7 +40,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 - **Issue**: No auth on trading endpoints
 - **Impact**: Security vulnerability
 - **Fix**: Add API key authentication middleware
-- **Status**: ⏳ TODO
+- **Status**: ✅ FIXED (Cycle 2) - Added api-auth.ts with authentication + rate limiting to trade, orders, kill-switch routes
 
 ### 5. Environment Variable Validation
 - **Files**: `src/lib/alpaca.ts`, `src/lib/db.ts`
@@ -106,6 +106,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 |------|-------|------|
 | Type safety fix - null position return | 1 | 2026-02-02 |
 | Performance fix - parallel price fetching | 1 | 2026-02-02 |
+| API authentication + rate limiting for critical endpoints | 2 | 2026-02-02 |
 
 ---
 
