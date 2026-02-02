@@ -4,21 +4,62 @@ import {
   MarketDataInput,
   RegimeResult,
   DEFAULT_REGIME_CONFIG 
-} from '@/lib/regime';
+} from '@/lib/regime/index';
 import alpaca from '@/lib/alpaca';
 
 // Cache regime results briefly to avoid excessive API calls
 const regimeCache = new Map<string, { result: RegimeResult; timestamp: number }>();
 const CACHE_TTL_MS = 1000; // 1 second cache
 
+interface AlpacaBar {
+  Timestamp: string;
+  OpenPrice: number;
+  HighPrice: number;
+  LowPrice: number;
+  ClosePrice: number;
+  Volume: number;
+  TradeCount: number;
+  VWAP: number;
+}
+
 /**
- * Generate mock historical data for testing when market data unavailable
+ * Fetch real historical bars from Alpaca
  */
-function generateMockData(symbol: string): MarketDataInput {
+async function fetchAlpacaBars(symbol: string, limit: number = 50): Promise<AlpacaBar[]> {
+  try {
+    const bars = await alpaca.getBarsV2(symbol, {
+      timeframe: '5Min',
+      limit,
+      feed: 'iex',
+    });
+    
+    const barArray: AlpacaBar[] = [];
+    for await (const bar of bars) {
+      barArray.push({
+        Timestamp: bar.Timestamp,
+        OpenPrice: bar.OpenPrice,
+        HighPrice: bar.HighPrice,
+        LowPrice: bar.LowPrice,
+        ClosePrice: bar.ClosePrice,
+        Volume: bar.Volume,
+        TradeCount: bar.TradeCount,
+        VWAP: bar.VWAP,
+      });
+    }
+    return barArray;
+  } catch (error) {
+    console.error(`Error fetching bars for ${symbol}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Generate fallback data when market data unavailable
+ */
+function generateFallbackData(symbol: string): MarketDataInput {
   const now = new Date();
   const basePrice = 100 + Math.random() * 100;
   
-  // Generate simple price series
   const prices: number[] = [];
   const highs: number[] = [];
   const lows: number[] = [];
@@ -62,31 +103,71 @@ function generateMockData(symbol: string): MarketDataInput {
 }
 
 /**
- * Fetch real market data from Alpaca
+ * Fetch real market data from Alpaca with historical bars
  */
 async function fetchMarketData(symbol: string): Promise<MarketDataInput> {
   try {
-    // Try to get real quote data
-    const quote = await alpaca.getLatestQuote(symbol);
+    // Fetch real historical bars and quote in parallel
+    const [bars, quote] = await Promise.all([
+      fetchAlpacaBars(symbol, 50),
+      alpaca.getLatestQuote(symbol).catch(() => null),
+    ]);
     
-    // For now, generate synthetic historical data
-    // In production, you'd fetch bars from Alpaca's data API
-    const mockData = generateMockData(symbol);
+    // If no bars, fall back to generated data
+    if (bars.length === 0) {
+      console.warn(`No bars available for ${symbol}, using fallback data`);
+      return generateFallbackData(symbol);
+    }
     
-    // Override with real quote if available
-    const bidPrice = typeof quote?.BidPrice === 'number' ? quote.BidPrice : mockData.bid;
-    const askPrice = typeof quote?.AskPrice === 'number' ? quote.AskPrice : mockData.ask;
+    // Extract OHLCV data from bars
+    const prices = bars.map(b => b.ClosePrice);
+    const highs = bars.map(b => b.HighPrice);
+    const lows = bars.map(b => b.LowPrice);
+    const closes = bars.map(b => b.ClosePrice);
+    const volumes = bars.map(b => b.Volume);
+    
+    // Get current price and quote data
+    const currentPrice = closes[closes.length - 1];
+    const bidPrice = quote?.BidPrice ?? currentPrice * 0.9995;
+    const askPrice = quote?.AskPrice ?? currentPrice * 1.0005;
+    const bidSize = quote?.BidSize ?? 100;
+    const askSize = quote?.AskSize ?? 100;
+    
+    // Calculate spread metrics
+    const currentSpread = askPrice - bidPrice;
+    // Estimate average spread as a small percentage of price
+    const avgSpread = currentPrice * 0.001;
+    
+    // Check for gap (compare first bar's open to previous close if available)
+    const hasGap = bars.length > 1 && 
+      Math.abs(bars[bars.length - 1].OpenPrice - bars[bars.length - 2].ClosePrice) > 
+      currentPrice * 0.01;
+    const gapSize = hasGap ? 
+      Math.abs(bars[bars.length - 1].OpenPrice - bars[bars.length - 2].ClosePrice) / currentPrice : 
+      0;
     
     return {
-      ...mockData,
+      symbol,
+      timestamp: new Date(),
+      prices,
+      highs,
+      lows,
+      closes,
+      volumes,
       bid: bidPrice,
       ask: askPrice,
-      currentSpread: askPrice - bidPrice,
-      lastUpdateMs: 100, // Assume fresh data
+      bidSize,
+      askSize,
+      currentSpread,
+      averageSpread: avgSpread,
+      isHalted: false,
+      hasGap,
+      gapSize,
+      lastUpdateMs: 100,
     };
   } catch (error) {
-    console.warn(`Could not fetch real data for ${symbol}, using mock data:`, error);
-    return generateMockData(symbol);
+    console.warn(`Error fetching real data for ${symbol}:`, error);
+    return generateFallbackData(symbol);
   }
 }
 

@@ -1,4 +1,5 @@
 import { prisma } from './db';
+import { getRegimeDetector, RegimeType } from './regime';
 
 export interface TradingIntent {
   symbol: string;
@@ -7,6 +8,14 @@ export interface TradingIntent {
   orderType: 'market' | 'limit';
   limitPrice?: number;
   strategy: string;
+}
+
+export interface RegimeCheckResult {
+  regime: RegimeType;
+  confidence: number;
+  canTrade: boolean;
+  sizeMultiplier: number;
+  reason?: string;
 }
 
 export interface RiskCheckResult {
@@ -143,6 +152,61 @@ export async function deactivateKillSwitch(): Promise<void> {
 }
 
 /**
+ * Check market regime for a symbol and return trading guidance
+ */
+export async function checkRegime(symbol: string): Promise<RegimeCheckResult> {
+  try {
+    const detector = getRegimeDetector(symbol);
+    const result = await detector.detect();
+    
+    // Determine if we can trade and position size multiplier
+    let canTrade = true;
+    let sizeMultiplier = 1.0;
+    let reason: string | undefined;
+    
+    switch (result.regime) {
+      case 'UNTRADEABLE':
+        canTrade = false;
+        sizeMultiplier = 0;
+        reason = 'Market regime is UNTRADEABLE - extreme conditions detected';
+        break;
+      case 'VOL_EXPANSION':
+        canTrade = true;
+        sizeMultiplier = 0.5; // Reduce size by 50%
+        reason = 'Volatility expansion - position size reduced 50%';
+        break;
+      case 'CHOP':
+        canTrade = true;
+        sizeMultiplier = 0.7; // Slightly reduced size for choppy markets
+        reason = 'Choppy market - position size reduced 30%';
+        break;
+      case 'TREND':
+        canTrade = true;
+        sizeMultiplier = 1.0;
+        break;
+    }
+    
+    return {
+      regime: result.regime,
+      confidence: result.confidence,
+      canTrade,
+      sizeMultiplier,
+      reason,
+    };
+  } catch (error) {
+    console.error('Error checking regime:', error);
+    // Default to cautious behavior on error
+    return {
+      regime: 'CHOP',
+      confidence: 0.5,
+      canTrade: true,
+      sizeMultiplier: 0.5,
+      reason: 'Could not determine regime - using conservative settings',
+    };
+  }
+}
+
+/**
  * Main risk check function
  */
 export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResult> {
@@ -245,6 +309,35 @@ export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResul
     details: sanityOk ? 'Order parameters valid' : 'Invalid order parameters',
   };
   checks.push(sanityCheck);
+
+  // Check 7: Market Regime - block UNTRADEABLE, warn on VOL_EXPANSION
+  try {
+    const regimeResult = await checkRegime(intent.symbol);
+    const regimeCheck = {
+      name: 'regime_check',
+      passed: regimeResult.canTrade,
+      details: regimeResult.reason || `Regime: ${regimeResult.regime} (confidence: ${(regimeResult.confidence * 100).toFixed(0)}%)`,
+    };
+    checks.push(regimeCheck);
+    
+    // Add warning check for size adjustment (informational, doesn't block)
+    if (regimeResult.sizeMultiplier < 1.0 && regimeResult.canTrade) {
+      const sizeWarning = {
+        name: 'regime_size_adjustment',
+        passed: true, // Informational, doesn't block
+        details: `Position size should be ${(regimeResult.sizeMultiplier * 100).toFixed(0)}% due to ${regimeResult.regime} regime`,
+      };
+      checks.push(sizeWarning);
+    }
+  } catch (error) {
+    // If regime check fails, add a warning but don't block
+    const regimeCheck = {
+      name: 'regime_check',
+      passed: true, // Don't block on regime check failure
+      details: 'Could not verify market regime - proceeding with caution',
+    };
+    checks.push(regimeCheck);
+  }
 
   // Overall result
   const allPassed = checks.every(c => c.passed);
