@@ -140,12 +140,13 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | ESLint config: exclude legacy JS project | 23 | 2026-02-02 |
 | Auth for risk GET and trade GET endpoints | 24 | 2026-02-02 |
 | Input validation for intents POST endpoint | 25 | 2026-02-02 |
+| Input validation for orders POST endpoint | 26 | 2026-02-02 |
 
 ---
 
 ## Notes
 
-### Code Quality Metrics (Updated Cycle 25)
+### Code Quality Metrics (Updated Cycle 26)
 - **Test Coverage**: 296 tests across 14 test suites
 - **Lint Status**: 2 warnings (reserved state for future feature), 0 errors
 - **TypeScript Strictness**: High (strict mode enabled)

@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOrders, submitOrder, cancelOrder } from '@/lib/alpaca';
 import { checkIntent } from '@/lib/risk-engine';
 import { withAuth } from '@/lib/api-auth';
+import {
+  validateSymbol,
+  validateSide,
+  validateOrderType,
+  validatePositiveNumber,
+  validateEnum,
+} from '@/lib/validation';
 
 // Disable caching - always fetch fresh data
 export const dynamic = 'force-dynamic';
@@ -58,15 +65,67 @@ export const GET = withAuth(async function GET(request: NextRequest) {
 export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { symbol, quantity, side, type, timeInForce, limitPrice, stopPrice, skipRiskCheck, skipRegimeCheck } = body;
+    const { timeInForce, limitPrice, stopPrice, skipRiskCheck, skipRegimeCheck } = body;
 
-    // Validate required fields
-    if (!symbol || !quantity || !side || !type) {
+    // Validate required fields with proper type checking
+    const symbolResult = validateSymbol(body.symbol);
+    if (!symbolResult.valid) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: symbol, quantity, side, type' },
+        { success: false, error: symbolResult.error },
         { status: 400 }
       );
     }
+
+    const sideResult = validateSide(body.side?.toLowerCase?.());
+    if (!sideResult.valid) {
+      return NextResponse.json(
+        { success: false, error: sideResult.error },
+        { status: 400 }
+      );
+    }
+
+    const quantityResult = validatePositiveNumber(body.quantity, 'quantity', { integer: true });
+    if (!quantityResult.valid) {
+      return NextResponse.json(
+        { success: false, error: quantityResult.error },
+        { status: 400 }
+      );
+    }
+
+    const typeResult = validateOrderType(body.type?.toLowerCase?.());
+    if (!typeResult.valid) {
+      return NextResponse.json(
+        { success: false, error: typeResult.error },
+        { status: 400 }
+      );
+    }
+
+    // Validate limitPrice is required for limit orders
+    if (typeResult.value === 'limit') {
+      const limitPriceResult = validatePositiveNumber(limitPrice, 'limitPrice');
+      if (!limitPriceResult.valid) {
+        return NextResponse.json(
+          { success: false, error: 'limitPrice is required for limit orders' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate timeInForce if provided
+    if (timeInForce) {
+      const tifResult = validateEnum(timeInForce, 'timeInForce', ['day', 'gtc', 'opg', 'ioc', 'fok'] as const);
+      if (!tifResult.valid) {
+        return NextResponse.json(
+          { success: false, error: tifResult.error },
+          { status: 400 }
+        );
+      }
+    }
+
+    const symbol = symbolResult.value;
+    const side = sideResult.value;
+    const quantity = quantityResult.value;
+    const type = typeResult.value;
 
     // Run risk checks unless explicitly skipped
     if (!skipRiskCheck) {
@@ -74,7 +133,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
         symbol,
         side,
         quantity,
-        orderType: type === 'limit' ? 'limit' : 'market',
+        orderType: type,
         limitPrice,
         strategy: 'manual',
         skipRegimeCheck: skipRegimeCheck || false,
@@ -92,7 +151,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
 
     // Submit order to Alpaca
     const order = await submitOrder({
-      symbol: symbol.toUpperCase(),
+      symbol,
       qty: quantity,
       side,
       type,
