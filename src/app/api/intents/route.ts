@@ -119,12 +119,12 @@ export const POST = withAuth(async function POST(request: NextRequest) {
       },
     });
 
-    // Run risk checks
+    // Run risk checks (side and orderType are already validated as lowercase)
     const riskResult = await checkIntent({
       symbol,
-      side: side.toLowerCase(),
+      side,
       quantity,
-      orderType: orderType.toLowerCase() as 'market' | 'limit',
+      orderType,
       limitPrice,
       strategy: strategy || 'manual',
     });
