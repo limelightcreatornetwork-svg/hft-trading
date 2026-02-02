@@ -7,6 +7,7 @@ import { OrdersTable } from '@/components/trading/OrdersTable';
 import { IntentsLog } from '@/components/trading/IntentsLog';
 import { TradeForm } from '@/components/trading/TradeForm';
 import { KillSwitch } from '@/components/trading/KillSwitch';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -299,35 +300,47 @@ export default function TradingDashboard() {
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Top Row: Account + Kill Switch */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <AccountCard data={account} loading={loadingAccount} />
-          <KillSwitch
-            riskData={riskData}
-            killSwitchActive={killSwitchActive}
-            onToggleKillSwitch={handleToggleKillSwitch}
-            loading={togglingKillSwitch || loadingRisk}
-          />
+          <ErrorBoundary sectionName="Account" compact>
+            <AccountCard data={account} loading={loadingAccount} />
+          </ErrorBoundary>
+          <ErrorBoundary sectionName="Kill Switch" compact>
+            <KillSwitch
+              riskData={riskData}
+              killSwitchActive={killSwitchActive}
+              onToggleKillSwitch={handleToggleKillSwitch}
+              loading={togglingKillSwitch || loadingRisk}
+            />
+          </ErrorBoundary>
         </div>
 
         {/* Middle Row: Positions + Trade Form */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <PositionsTable positions={positions} loading={loadingPositions} />
+            <ErrorBoundary sectionName="Positions">
+              <PositionsTable positions={positions} loading={loadingPositions} />
+            </ErrorBoundary>
           </div>
-          <TradeForm
-            onSubmit={handleSubmitTrade}
-            loading={submittingTrade}
-            allowedSymbols={riskData?.config.allowedSymbols || []}
-          />
+          <ErrorBoundary sectionName="Trade Form">
+            <TradeForm
+              onSubmit={handleSubmitTrade}
+              loading={submittingTrade}
+              allowedSymbols={riskData?.config.allowedSymbols || []}
+            />
+          </ErrorBoundary>
         </div>
 
         {/* Bottom Row: Orders + Intents */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <OrdersTable
-            orders={orders}
-            loading={loadingOrders}
-            onCancelOrder={handleCancelOrder}
-          />
-          <IntentsLog intents={intents} loading={loadingIntents} />
+          <ErrorBoundary sectionName="Orders">
+            <OrdersTable
+              orders={orders}
+              loading={loadingOrders}
+              onCancelOrder={handleCancelOrder}
+            />
+          </ErrorBoundary>
+          <ErrorBoundary sectionName="Trade Intents">
+            <IntentsLog intents={intents} loading={loadingIntents} />
+          </ErrorBoundary>
         </div>
       </main>
     </div>

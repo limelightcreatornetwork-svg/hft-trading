@@ -58,7 +58,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 ### 6. Missing Error Boundaries
 - **Files**: React components
 - **Issue**: No granular error handling
-- **Status**: ⏳ TODO
+- **Status**: ✅ FIXED (Cycle 4) - Added ErrorBoundary component, wrapped dashboard sections
 
 ### 7. No Request Rate Limiting
 - **Files**: API routes
@@ -118,6 +118,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Comprehensive README documentation | 6 | 2026-02-02 |
 | API authentication + rate limiting for critical endpoints | 2 | 2026-02-02 |
 | Test coverage: trade-manager module (21 tests) | 3 | 2026-02-02 |
+| React error boundaries for dashboard sections | 4 | 2026-02-02 |
 
 ---
 
