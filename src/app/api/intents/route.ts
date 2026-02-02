@@ -4,6 +4,12 @@ import { checkIntent } from '@/lib/risk-engine';
 import { submitOrder } from '@/lib/alpaca';
 import { withAuth } from '@/lib/api-auth';
 import { logAudit } from '@/lib/audit-log';
+import {
+  validateSymbol,
+  validateSide,
+  validateOrderType,
+  validatePositiveNumber,
+} from '@/lib/validation';
 
 // Disable caching - always fetch fresh data
 export const dynamic = 'force-dynamic';
@@ -49,20 +55,61 @@ export const GET = withAuth(async function GET(request: NextRequest) {
 export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { symbol, side, quantity, orderType, limitPrice, strategy, autoExecute = true } = body;
+    const { limitPrice, strategy, autoExecute = true } = body;
 
-    // Validate required fields
-    if (!symbol || !side || !quantity || !orderType) {
+    // Validate required fields with proper type checking
+    const symbolResult = validateSymbol(body.symbol);
+    if (!symbolResult.valid) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: symbol, side, quantity, orderType' },
+        { success: false, error: symbolResult.error },
         { status: 400 }
       );
     }
 
+    const sideResult = validateSide(body.side?.toLowerCase?.());
+    if (!sideResult.valid) {
+      return NextResponse.json(
+        { success: false, error: sideResult.error },
+        { status: 400 }
+      );
+    }
+
+    const quantityResult = validatePositiveNumber(body.quantity, 'quantity', { integer: true });
+    if (!quantityResult.valid) {
+      return NextResponse.json(
+        { success: false, error: quantityResult.error },
+        { status: 400 }
+      );
+    }
+
+    const orderTypeResult = validateOrderType(body.orderType?.toLowerCase?.());
+    if (!orderTypeResult.valid) {
+      return NextResponse.json(
+        { success: false, error: orderTypeResult.error },
+        { status: 400 }
+      );
+    }
+
+    // Validate limitPrice is required for limit orders
+    if (orderTypeResult.value === 'limit') {
+      const limitPriceResult = validatePositiveNumber(limitPrice, 'limitPrice');
+      if (!limitPriceResult.valid) {
+        return NextResponse.json(
+          { success: false, error: 'limitPrice is required for limit orders' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const symbol = symbolResult.value;
+    const side = sideResult.value;
+    const quantity = quantityResult.value;
+    const orderType = orderTypeResult.value;
+
     // Create intent record
     const intent = await prisma.intent.create({
       data: {
-        symbol: symbol.toUpperCase(),
+        symbol,
         side: side.toUpperCase(),
         quantity,
         orderType: orderType.toUpperCase(),
