@@ -4,8 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RegimeDisplay } from "@/components/trading/RegimeDisplay";
 
 export default function DashboardPage() {
+  // Default symbols to monitor for regime
+  const watchlistSymbols = ['SPY', 'QQQ', 'AAPL'];
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -42,6 +46,21 @@ export default function DashboardPage() {
           </CardHeader>
         </Card>
       </div>
+
+      {/* Market Regime */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Market Regime Detection</CardTitle>
+          <CardDescription>Real-time market condition classification</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {watchlistSymbols.map((symbol) => (
+              <RegimeDisplay key={symbol} symbol={symbol} refreshInterval={10000} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Risk Status */}
       <Card>
