@@ -9,7 +9,7 @@ interface AccountData {
   cash: number;
   portfolioValue: number;
   dailyPL: number;
-  dailyPLPercent: number;
+  dailyPLPercent: number | null;
   status: string;
 }
 
@@ -75,10 +75,12 @@ export function AccountCard({ data, loading }: AccountCardProps) {
           <div>
             <p className="text-sm text-muted-foreground">Daily P&L</p>
             <p className={`text-2xl font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-              {isPositive ? '+' : ''}${data.dailyPL.toFixed(2)}
-              <span className="text-sm ml-1">
-                ({isPositive ? '+' : ''}{data.dailyPLPercent.toFixed(2)}%)
-              </span>
+              {isPositive ? '+' : ''}${(data.dailyPL ?? 0).toFixed(2)}
+              {data.dailyPLPercent != null && (
+                <span className="text-sm ml-1">
+                  ({isPositive ? '+' : ''}{data.dailyPLPercent.toFixed(2)}%)
+                </span>
+              )}
             </p>
           </div>
         </div>

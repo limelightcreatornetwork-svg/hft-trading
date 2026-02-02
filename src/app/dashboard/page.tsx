@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RegimeDisplay } from "@/components/trading/RegimeDisplay";
+import { RegimeIndicator } from "@/components/trading/RegimeIndicator";
 
 export default function DashboardPage() {
   // Default symbols to monitor for regime
@@ -13,7 +13,10 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">HFT Trading Dashboard</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold">HFT Trading Dashboard</h1>
+          <RegimeIndicator symbol="SPY" compact />
+        </div>
         <Badge variant="outline" className="text-red-500 border-red-500">
           PAPER TRADING
         </Badge>
@@ -47,7 +50,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Market Regime */}
+      {/* Market Regime Detection */}
       <Card>
         <CardHeader>
           <CardTitle>Market Regime Detection</CardTitle>
@@ -56,7 +59,7 @@ export default function DashboardPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {watchlistSymbols.map((symbol) => (
-              <RegimeDisplay key={symbol} symbol={symbol} refreshInterval={10000} />
+              <RegimeIndicator key={symbol} symbol={symbol} refreshInterval={30000} />
             ))}
           </div>
         </CardContent>

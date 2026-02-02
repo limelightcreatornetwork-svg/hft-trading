@@ -17,7 +17,7 @@ interface AccountData {
   cash: number;
   portfolioValue: number;
   dailyPL: number;
-  dailyPLPercent: number;
+  dailyPLPercent: number | null;
   status: string;
 }
 
