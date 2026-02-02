@@ -66,14 +66,26 @@ export interface AlertCheckResult {
 const DEFAULT_TIME_STOP_HOURS = 4;
 
 /**
+ * Result type for createManagedPosition - uses discriminated union for type safety
+ */
+export type CreateManagedPositionResult = 
+  | {
+      position: ManagedPositionWithAlerts;
+      confidence: ConfidenceScore;
+      skipped: false;
+      reason?: never;
+    }
+  | {
+      position: null;
+      confidence: ConfidenceScore;
+      skipped: true;
+      reason: string;
+    };
+
+/**
  * Create a managed position with confidence scoring
  */
-export async function createManagedPosition(request: TradeRequest): Promise<{
-  position: ManagedPositionWithAlerts;
-  confidence: ConfidenceScore;
-  skipped: boolean;
-  reason?: string;
-}> {
+export async function createManagedPosition(request: TradeRequest): Promise<CreateManagedPositionResult> {
   // Calculate confidence score
   const confidence = await calculateConfidence({
     symbol: request.symbol,
@@ -84,7 +96,7 @@ export async function createManagedPosition(request: TradeRequest): Promise<{
   // Skip if confidence is too low
   if (confidence.recommendation === 'SKIP') {
     return {
-      position: null as any,
+      position: null,
       confidence,
       skipped: true,
       reason: `Trade skipped due to low confidence (${confidence.total}/10): ${confidence.reasoning.join(', ')}`,
@@ -151,19 +163,24 @@ export async function getActiveManagedPositions(): Promise<ManagedPositionWithAl
     orderBy: { enteredAt: 'desc' },
   });
   
-  // Fetch current prices for all symbols
+  // Fetch current prices for all symbols in parallel
   const symbols = [...new Set(positions.map(p => p.symbol))];
   const prices: Record<string, number> = {};
   
-  for (const symbol of symbols) {
+  const pricePromises = symbols.map(async (symbol) => {
     try {
       const quote = await alpaca.getLatestQuote(symbol);
-      prices[symbol] = (quote.BidPrice + quote.AskPrice) / 2 || quote.AskPrice || 0;
+      return { symbol, price: (quote.BidPrice + quote.AskPrice) / 2 || quote.AskPrice || 0 };
     } catch (error) {
       console.error(`Error fetching price for ${symbol}:`, error);
-      prices[symbol] = 0;
+      return { symbol, price: 0 };
     }
-  }
+  });
+  
+  const priceResults = await Promise.all(pricePromises);
+  priceResults.forEach(({ symbol, price }) => {
+    prices[symbol] = price;
+  });
   
   return positions.map(p => {
     const multiplier = p.side === 'buy' ? 1 : -1;

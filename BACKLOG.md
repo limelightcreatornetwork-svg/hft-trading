@@ -1,0 +1,138 @@
+# HFT Trading System - Backlog
+
+## Overview
+This backlog tracks issues, improvements, and technical debt for the HFT trading system.
+
+---
+
+## 🔴 Critical Issues
+
+### 1. Type Safety: `null as any` in trade-manager.ts
+- **File**: `src/lib/trade-manager.ts:75`
+- **Issue**: `createManagedPosition` returns `position: null as any` when trade is skipped
+- **Impact**: Runtime errors if consumer expects position object
+- **Fix**: Create proper nullable return type or discriminated union
+- **Status**: ✅ FIXED (Cycle 1)
+
+### 2. Sequential Price Fetching Performance
+- **File**: `src/lib/trade-manager.ts:126-133`
+- **Issue**: Fetches prices sequentially for each symbol
+- **Impact**: Slow API responses for portfolios with multiple positions
+- **Fix**: Parallel fetch with `Promise.all`
+- **Status**: ✅ FIXED (Cycle 1)
+
+---
+
+## 🟠 High Priority
+
+### 3. Missing Test Coverage
+- **Affected files**: 
+  - `src/lib/trade-manager.ts` (0 tests)
+  - `src/lib/confidence.ts` (0 tests)
+  - `src/lib/risk-engine.ts` (0 tests)
+  - `src/lib/alpaca.ts` (0 tests)
+  - All API routes (0 tests)
+- **Impact**: Regressions can go undetected
+- **Status**: 🔄 IN PROGRESS
+
+### 4. No API Authentication
+- **Files**: All `src/app/api/*/route.ts`
+- **Issue**: No auth on trading endpoints
+- **Impact**: Security vulnerability
+- **Fix**: Add API key authentication middleware
+- **Status**: ⏳ TODO
+
+### 5. Environment Variable Validation
+- **Files**: `src/lib/alpaca.ts`, `src/lib/db.ts`
+- **Issue**: Uses `!` assertion without validation
+- **Impact**: Cryptic errors if env vars missing
+- **Status**: ⏳ TODO
+
+---
+
+## 🟡 Medium Priority
+
+### 6. Missing Error Boundaries
+- **Files**: React components
+- **Issue**: No granular error handling
+- **Status**: ⏳ TODO
+
+### 7. No Request Rate Limiting
+- **Files**: API routes
+- **Impact**: DoS vulnerability
+- **Status**: ⏳ TODO
+
+### 8. Hardcoded Thresholds
+- **File**: `src/lib/regime.ts`, `src/lib/confidence.ts`
+- **Issue**: Magic numbers for thresholds
+- **Fix**: Move to config/constants
+- **Status**: ⏳ TODO
+
+### 9. Missing API Documentation
+- **Issue**: No OpenAPI/Swagger docs
+- **Status**: ⏳ TODO
+
+### 10. No Audit Logging
+- **Issue**: No record of who did what
+- **Status**: ⏳ TODO
+
+---
+
+## 🟢 Low Priority / Nice to Have
+
+### 11. Improve README
+- Add architecture diagram
+- Document API endpoints
+- Setup instructions
+- **Status**: ⏳ TODO
+
+### 12. Add WebSocket Support
+- Real-time price updates
+- **Status**: ⏳ TODO
+
+### 13. Add E2E Tests
+- Playwright/Cypress tests
+- **Status**: ⏳ TODO
+
+### 14. Database Indexes Optimization
+- Review query patterns
+- **Status**: ⏳ TODO
+
+---
+
+## Completed Items
+
+| Item | Cycle | Date |
+|------|-------|------|
+| Type safety fix - null position return | 1 | 2026-02-02 |
+| Performance fix - parallel price fetching | 1 | 2026-02-02 |
+
+---
+
+## Notes
+
+### Code Quality Metrics
+- **Test Coverage**: ~10% (only regime detection tested)
+- **TypeScript Strictness**: High (strict mode enabled)
+- **Lint Errors**: Need to check
+
+### Architecture
+```
+src/
+├── app/
+│   ├── api/          # Next.js API routes
+│   │   ├── trade/    # Trade execution
+│   │   ├── risk/     # Risk management
+│   │   ├── regime/   # Market regime detection
+│   │   ├── options/  # Options trading
+│   │   └── ...
+│   └── (pages)/      # UI pages
+├── lib/
+│   ├── alpaca.ts     # Alpaca API client
+│   ├── risk-engine.ts    # Risk checks
+│   ├── trade-manager.ts  # Position management
+│   ├── confidence.ts     # Trade scoring
+│   ├── regime.ts         # Market regime detection
+│   └── regime/           # Regime detection modules
+└── components/           # React components
+```
