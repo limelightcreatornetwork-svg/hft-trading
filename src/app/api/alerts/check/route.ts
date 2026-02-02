@@ -1,28 +1,29 @@
 /**
  * POST /api/alerts/check - Check all positions against TP/SL/time stops
- * 
+ *
  * Returns list of triggered alerts
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { checkAllPositions } from '@/lib/trade-manager';
+import { withAuth } from '@/lib/api-auth';
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async function POST() {
   try {
     const results = await checkAllPositions();
-    
+
     const triggeredCount = results.reduce(
       (sum, r) => sum + r.alerts.filter(a => a.triggered).length,
       0
     );
-    
+
     return NextResponse.json({
       success: true,
       positionsChecked: results.length,
       triggeredAlerts: triggeredCount,
       results,
     });
-    
+
   } catch (error) {
     console.error('Error checking positions:', error);
     return NextResponse.json(
@@ -30,9 +31,21 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function GET(request: NextRequest) {
-  // Also allow GET for convenience
-  return POST(request);
-}
+export const GET = withAuth(async function GET() {
+  // Also allow GET for convenience - call the POST logic
+  const results = await checkAllPositions();
+
+  const triggeredCount = results.reduce(
+    (sum, r) => sum + r.alerts.filter(a => a.triggered).length,
+    0
+  );
+
+  return NextResponse.json({
+    success: true,
+    positionsChecked: results.length,
+    triggeredAlerts: triggeredCount,
+    results,
+  });
+});

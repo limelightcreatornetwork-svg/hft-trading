@@ -1,18 +1,19 @@
 /**
  * GET /api/alerts - Get pending and recent alerts
- * 
+ *
  * Query params:
  * - pending: boolean (default: false) - Only show untriggered alerts
  * - limit: number (default: 50) - Max alerts to return
- * 
+ *
  * POST /api/alerts - Dismiss an alert
  * Body: { alertId: string }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllAlerts, getPendingAlerts, dismissAlert } from '@/lib/trade-manager';
+import { withAuth } from '@/lib/api-auth';
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const pendingOnly = searchParams.get('pending') === 'true';
@@ -41,9 +42,9 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { alertId } = body;
@@ -69,4 +70,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
