@@ -361,6 +361,88 @@ model TechnicalData {
 }
 
 // ============================================
+// TRADING BOT AUTOMATION MODELS
+// ============================================
+
+// Automation Rule - defines automated trading behavior
+model AutomationRule {
+  id              String   @id @default(cuid())
+  symbol          String
+  name            String
+  enabled         Boolean  @default(true)
+  ruleType        String   // LIMIT_ORDER, STOP_LOSS, TAKE_PROFIT, OCO, TRAILING_STOP
+  
+  // Trigger conditions
+  triggerType     String   // PRICE_ABOVE, PRICE_BELOW, PERCENT_GAIN, PERCENT_LOSS, DOLLAR_GAIN, DOLLAR_LOSS
+  triggerValue    Float    // Price target or percentage/dollar amount
+  
+  // Order details when triggered
+  orderSide       String   // buy, sell
+  orderType       String   // market, limit, stop, stop_limit
+  quantity        Float?   // null = full position
+  limitPrice      Float?   // For limit orders
+  
+  // OCO linking
+  ocoGroupId      String?  // Links OCO orders together
+  
+  // Position tracking
+  positionId      String?  // Link to specific position
+  entryPrice      Float?   // Reference price for % calculations
+  
+  // Execution tracking
+  status          String   @default("active") // active, triggered, cancelled, expired
+  triggeredAt     DateTime?
+  orderId         String?  // Alpaca order ID when triggered
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  expiresAt       DateTime? // Optional expiration
+  
+  executions      AutomationExecution[]
+
+  @@index([symbol])
+  @@index([status])
+  @@index([ruleType])
+  @@index([ocoGroupId])
+}
+
+// Automation Execution Log
+model AutomationExecution {
+  id            String   @id @default(cuid())
+  ruleId        String
+  rule          AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  triggerPrice  Float    // Price that triggered the rule
+  executedPrice Float?   // Actual fill price
+  quantity      Float
+  orderId       String?  // Alpaca order ID
+  orderStatus   String   // pending, filled, cancelled, failed
+  
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+
+  @@index([ruleId])
+  @@index([createdAt])
+}
+
+// Position Snapshot for monitoring
+model PositionSnapshot {
+  id            String   @id @default(cuid())
+  symbol        String
+  quantity      Float
+  avgEntryPrice Float
+  currentPrice  Float
+  marketValue   Float
+  unrealizedPL  Float
+  unrealizedPLPct Float
+  timestamp     DateTime @default(now())
+
+  @@index([symbol])
+  @@index([timestamp])
+}
+
+// ============================================
 // AUDIT LOGGING
 // ============================================
 

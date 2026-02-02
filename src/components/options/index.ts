@@ -4,3 +4,6 @@ export { GreeksDisplay } from './GreeksDisplay';
 export { OptionsPositions } from './OptionsPositions';
 export { PLSimulator } from './PLSimulator';
 export { PortfolioGreeks } from './PortfolioGreeks';
+export { IVSurface } from './IVSurface';
+export { SmartContractPicker } from './SmartContractPicker';
+export { ScenarioComparison } from './ScenarioComparison';

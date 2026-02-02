@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   OptionsChainViewer, 
   OptionsOrderForm, 
@@ -8,6 +8,9 @@ import {
   OptionsPositions,
   PLSimulator,
   PortfolioGreeks,
+  IVSurface,
+  SmartContractPicker,
+  ScenarioComparison,
 } from '@/components/options';
 
 interface Position {
@@ -47,8 +50,12 @@ export default function OptionsPage() {
   const [selectedContract, setSelectedContract] = useState<SelectedContract | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [account, setAccount] = useState<AccountData | null>(null);
-  const [activeTab, setActiveTab] = useState<'chain' | 'positions' | 'strategies'>('chain');
+  const [activeTab, setActiveTab] = useState<'chain' | 'positions' | 'strategies' | 'analysis'>('chain');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [chainData, setChainData] = useState<Array<{ strike: number; expiration: string; iv: number; type: 'call' | 'put'; delta?: number }>>([]);
+  const [underlyingPrice, setUnderlyingPrice] = useState<number>(100);
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('');
+  const [selectedStrategy, setSelectedStrategy] = useState<'covered_call' | 'csp' | 'long_call' | 'long_put' | 'custom'>('covered_call');
 
   // Fetch account and positions data
   useEffect(() => {
@@ -84,7 +91,57 @@ export default function OptionsPage() {
 
   const handleContractSelect = (contract: SelectedContract) => {
     setSelectedContract(contract);
+    // Extract underlying symbol
+    const underlying = contract.contract.symbol.match(/^([A-Z]+)/)?.[1] || '';
+    if (underlying) {
+      setSelectedSymbol(underlying);
+    }
   };
+
+  // Build IV data from selected contract's chain for IV Surface
+  const ivSurfaceData = useMemo(() => {
+    if (!chainData.length) return [];
+    return chainData.map(item => ({
+      strike: item.strike,
+      expiration: item.expiration,
+      iv: item.iv,
+      type: item.type,
+      delta: item.delta,
+    }));
+  }, [chainData]);
+
+  // Build contract list for Smart Picker from chain data
+  const smartPickerContracts = useMemo(() => {
+    if (!chainData.length) return [];
+    return chainData.map(item => ({
+      symbol: `${selectedSymbol}${item.expiration.replace(/-/g, '').slice(2)}${item.type === 'call' ? 'C' : 'P'}${String(Math.round(item.strike * 1000)).padStart(8, '0')}`,
+      strike: item.strike,
+      expiration: item.expiration,
+      type: item.type,
+      bid: 0, // Would need actual quote data
+      ask: 0,
+      delta: item.delta || 0,
+      theta: 0,
+      iv: item.iv,
+      openInterest: 0,
+      volume: 0,
+    }));
+  }, [chainData, selectedSymbol]);
+
+  // Build scenario legs from selected contract
+  const scenarioLegs = useMemo(() => {
+    if (!selectedContract || !selectedContract.quote) return [];
+    return [{
+      type: selectedContract.contract.type,
+      strike: selectedContract.contract.strike,
+      premium: selectedContract.quote.bid,
+      quantity: 1,
+      side: 'short' as const,
+      delta: selectedContract.greeks?.delta,
+      theta: selectedContract.greeks?.theta,
+      iv: selectedContract.greeks?.iv,
+    }];
+  }, [selectedContract]);
 
   const handleOrderSubmit = (result: { success: boolean; data?: unknown; error?: string }) => {
     if (result.success) {
@@ -147,7 +204,7 @@ export default function OptionsPage() {
             </span>
           </div>
           <div className="flex space-x-2">
-            {(['chain', 'positions', 'strategies'] as const).map((tab) => (
+            {(['chain', 'positions', 'analysis', 'strategies'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -157,7 +214,7 @@ export default function OptionsPage() {
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                 }`}
               >
-                {tab === 'chain' ? '📈 Chain' : tab === 'positions' ? '💼 Positions' : '🎯 Strategies'}
+                {tab === 'chain' ? '📈 Chain' : tab === 'positions' ? '💼 Positions' : tab === 'analysis' ? '📊 Analysis' : '🎯 Strategies'}
               </button>
             ))}
           </div>
@@ -229,6 +286,43 @@ export default function OptionsPage() {
           {/* Portfolio Greeks - 1 column */}
           <div>
             <PortfolioGreeks showDetails={true} />
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'analysis' && (
+        <div className="grid grid-cols-2 gap-6">
+          {/* IV Surface */}
+          <div>
+            <IVSurface 
+              data={ivSurfaceData}
+              currentPrice={underlyingPrice}
+              symbol={selectedSymbol || 'SPY'}
+            />
+          </div>
+
+          {/* Scenario Comparison */}
+          <div>
+            <ScenarioComparison 
+              legs={scenarioLegs}
+              currentPrice={underlyingPrice}
+              daysToExpiry={selectedContract ? Math.ceil((new Date(selectedContract.contract.expiration).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 30}
+              symbol={selectedSymbol || 'SPY'}
+            />
+          </div>
+
+          {/* Smart Contract Picker */}
+          <div className="col-span-2">
+            <SmartContractPicker
+              contracts={smartPickerContracts}
+              currentPrice={underlyingPrice}
+              symbol={selectedSymbol || 'SPY'}
+              strategy={selectedStrategy}
+              onSelect={(contract) => {
+                // Navigate to chain and select this contract
+                setActiveTab('chain');
+              }}
+            />
           </div>
         </div>
       )}
