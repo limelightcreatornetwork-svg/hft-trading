@@ -145,6 +145,49 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Input validation for risk PUT endpoint | 28 | 2026-02-02 |
 | Fix TypeScript error in intents route | 29 | 2026-02-02 |
 | Fix withAuth type for Next.js 16 compat | 30 | 2026-02-02 |
+| Portfolio Optimization: library + API + UI | 31 | 2026-02-02 |
+
+---
+
+## ✅ Portfolio Optimization (Cycle 31)
+
+Added comprehensive portfolio analysis and optimization features:
+
+### Library (`src/lib/portfolio-optimizer.ts`)
+- **Position Sizing Algorithms**
+  - Kelly Criterion (full, half, quarter Kelly)
+  - Risk Parity (inverse volatility weighting)
+- **Risk Metrics**
+  - Sharpe Ratio
+  - Sortino Ratio
+  - Maximum Drawdown
+  - Value at Risk (VaR 95%)
+  - Beta
+  - Calmar Ratio
+  - Annualized Volatility
+- **Analysis Tools**
+  - Correlation matrix with high-correlation detection
+  - Sector allocation breakdown
+  - Asset class allocation
+  - Diversification scoring (HHI concentration)
+  - Rebalancing suggestions
+
+### API (`/api/portfolio`)
+- GET endpoint with full portfolio analysis
+- Protected with authentication middleware
+
+### UI Components (`src/components/portfolio/`)
+- RiskMetricsCard
+- AllocationChart
+- CorrelationMatrix
+- RebalanceSuggestions
+- PositionSizing
+- DiversificationScore
+
+### Page (`/portfolio`)
+- Three-section dashboard: Overview, Position Sizing, Rebalancing
+- Holdings table with sector classification
+- Educational content for sizing methods
 
 ---
 
