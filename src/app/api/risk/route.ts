@@ -7,7 +7,7 @@ import { logAudit } from '@/lib/audit-log';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   try {
     const config = await getRiskConfig();
     const headroom = await getRiskHeadroom();
@@ -30,7 +30,7 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
 export const PUT = withAuth(async function PUT(request: NextRequest) {
   try {

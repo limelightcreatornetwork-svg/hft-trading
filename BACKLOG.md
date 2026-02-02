@@ -138,12 +138,13 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | React Hook useEffect dependencies | 21 | 2026-02-02 |
 | Final lint cleanup (2 warnings remaining) | 22 | 2026-02-02 |
 | ESLint config: exclude legacy JS project | 23 | 2026-02-02 |
+| Auth for risk GET and trade GET endpoints | 24 | 2026-02-02 |
 
 ---
 
 ## Notes
 
-### Code Quality Metrics (Updated Cycle 23)
+### Code Quality Metrics (Updated Cycle 24)
 - **Test Coverage**: 296 tests across 14 test suites
 - **Lint Status**: 2 warnings (reserved state for future feature), 0 errors
 - **TypeScript Strictness**: High (strict mode enabled)

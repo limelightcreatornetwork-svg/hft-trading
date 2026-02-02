@@ -98,44 +98,44 @@ export const POST = withAuth(async function POST(request: NextRequest) {
 
 /**
  * GET /api/trade?symbol=XYZ&side=buy&entryPrice=100
- * 
+ *
  * Preview confidence score without placing trade
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const symbol = searchParams.get('symbol');
     const side = searchParams.get('side') as 'buy' | 'sell';
     const entryPriceStr = searchParams.get('entryPrice');
-    
+
     if (!symbol) {
       return NextResponse.json(
         { error: 'Symbol is required' },
         { status: 400 }
       );
     }
-    
+
     if (side && !['buy', 'sell'].includes(side)) {
       return NextResponse.json(
         { error: 'Side must be "buy" or "sell"' },
         { status: 400 }
       );
     }
-    
+
     const entryPrice = entryPriceStr ? parseFloat(entryPriceStr) : 100;
-    
+
     const confidence = await calculateConfidence({
       symbol: symbol.toUpperCase(),
       side: side || 'buy',
       entryPrice,
     });
-    
+
     const suggestedLevels = await getSuggestedLevels(
-      symbol.toUpperCase(), 
-      entryPrice, 
+      symbol.toUpperCase(),
+      entryPrice,
       side || 'buy'
     );
-    
+
     return NextResponse.json({
       symbol: symbol.toUpperCase(),
       side: side || 'buy',
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
       confidence,
       suggestedLevels,
     });
-    
+
   } catch (error) {
     console.error('Error calculating confidence:', error);
     return NextResponse.json(
@@ -151,4 +151,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
