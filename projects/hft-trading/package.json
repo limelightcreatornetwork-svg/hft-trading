@@ -1,0 +1,40 @@
+{
+  "name": "hft-trading-backend",
+  "version": "0.1.0",
+  "description": "Event-driven trading system for Alpaca Markets",
+  "type": "module",
+  "main": "src/gateway/index.js",
+  "scripts": {
+    "dev": "node --watch src/gateway/index.js",
+    "start": "node src/gateway/index.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "npm test -- --watch",
+    "test:coverage": "npm test -- --coverage",
+    "lint": "eslint src/",
+    "marketdata": "node src/marketdata/index.js",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "db:migrate": "node infra/migrate.js"
+  },
+  "keywords": ["trading", "alpaca", "hft", "event-driven"],
+  "author": "Ivan & Midas",
+  "license": "MIT",
+  "dependencies": {
+    "@alpacahq/alpaca-trade-api": "^3.0.0",
+    "express": "^5.0.0",
+    "ws": "^8.18.0",
+    "pg": "^8.11.0",
+    "dotenv": "^16.4.0",
+    "uuid": "^9.0.0",
+    "pino": "^8.19.0",
+    "pino-pretty": "^10.3.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "eslint": "^9.0.0",
+    "nodemon": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
