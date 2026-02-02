@@ -8,6 +8,7 @@ export interface TradingIntent {
   orderType: 'market' | 'limit';
   limitPrice?: number;
   strategy: string;
+  skipRegimeCheck?: boolean;
 }
 
 export interface RegimeCheckResult {
@@ -310,33 +311,42 @@ export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResul
   };
   checks.push(sanityCheck);
 
-  // Check 7: Market Regime - block UNTRADEABLE, warn on VOL_EXPANSION
-  try {
-    const regimeResult = await checkRegime(intent.symbol);
+  // Check 7: Market Regime - block UNTRADEABLE, warn on VOL_EXPANSION (skippable)
+  if (intent.skipRegimeCheck) {
     const regimeCheck = {
       name: 'regime_check',
-      passed: regimeResult.canTrade,
-      details: regimeResult.reason || `Regime: ${regimeResult.regime} (confidence: ${(regimeResult.confidence * 100).toFixed(0)}%)`,
+      passed: true,
+      details: 'Regime check skipped by user request',
     };
     checks.push(regimeCheck);
-    
-    // Add warning check for size adjustment (informational, doesn't block)
-    if (regimeResult.sizeMultiplier < 1.0 && regimeResult.canTrade) {
-      const sizeWarning = {
-        name: 'regime_size_adjustment',
-        passed: true, // Informational, doesn't block
-        details: `Position size should be ${(regimeResult.sizeMultiplier * 100).toFixed(0)}% due to ${regimeResult.regime} regime`,
+  } else {
+    try {
+      const regimeResult = await checkRegime(intent.symbol);
+      const regimeCheck = {
+        name: 'regime_check',
+        passed: regimeResult.canTrade,
+        details: regimeResult.reason || `Regime: ${regimeResult.regime} (confidence: ${(regimeResult.confidence * 100).toFixed(0)}%)`,
       };
-      checks.push(sizeWarning);
+      checks.push(regimeCheck);
+      
+      // Add warning check for size adjustment (informational, doesn't block)
+      if (regimeResult.sizeMultiplier < 1.0 && regimeResult.canTrade) {
+        const sizeWarning = {
+          name: 'regime_size_adjustment',
+          passed: true, // Informational, doesn't block
+          details: `Position size should be ${(regimeResult.sizeMultiplier * 100).toFixed(0)}% due to ${regimeResult.regime} regime`,
+        };
+        checks.push(sizeWarning);
+      }
+    } catch (error) {
+      // If regime check fails, add a warning but don't block
+      const regimeCheck = {
+        name: 'regime_check',
+        passed: true, // Don't block on regime check failure
+        details: 'Could not verify market regime - proceeding with caution',
+      };
+      checks.push(regimeCheck);
     }
-  } catch (error) {
-    // If regime check fails, add a warning but don't block
-    const regimeCheck = {
-      name: 'regime_check',
-      passed: true, // Don't block on regime check failure
-      details: 'Could not verify market regime - proceeding with caution',
-    };
-    checks.push(regimeCheck);
   }
 
   // Overall result

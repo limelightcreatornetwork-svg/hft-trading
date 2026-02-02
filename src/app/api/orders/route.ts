@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { symbol, quantity, side, type, timeInForce, limitPrice, stopPrice, skipRiskCheck } = body;
+    const { symbol, quantity, side, type, timeInForce, limitPrice, stopPrice, skipRiskCheck, skipRegimeCheck } = body;
 
     // Validate required fields
     if (!symbol || !quantity || !side || !type) {
@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
         orderType: type === 'limit' ? 'limit' : 'market',
         limitPrice,
         strategy: 'manual',
+        skipRegimeCheck: skipRegimeCheck || false,
       });
 
       if (!riskResult.approved) {
