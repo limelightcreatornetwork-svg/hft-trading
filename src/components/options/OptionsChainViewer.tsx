@@ -44,6 +44,9 @@ interface OptionsChainViewerProps {
 // Popular symbols for quick access
 const POPULAR_SYMBOLS = ['SPY', 'QQQ', 'AAPL', 'TSLA', 'NVDA', 'AMZN', 'META', 'MSFT'];
 
+// Moneyness filter options
+type MoneynessFilter = 'all' | 'itm' | 'atm' | 'otm' | 'near-atm';
+
 export function OptionsChainViewer({ 
   defaultSymbol = '', 
   onSelectContract,
@@ -61,6 +64,13 @@ export function OptionsChainViewer({
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedContract, setSelectedContract] = useState<OptionsChainEntry | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  
+  // New filter states
+  const [moneynessFilter, setMoneynessFilter] = useState<MoneynessFilter>('all');
+  const [minVolume, setMinVolume] = useState(0);
+  const [maxSpread, setMaxSpread] = useState(Infinity);
+  const [minOpenInterest, setMinOpenInterest] = useState(0);
+  const [showSpreadPercent, setShowSpreadPercent] = useState(true);
 
   const fetchChain = useCallback(async () => {
     if (!symbol) return;
@@ -121,13 +131,28 @@ export function OptionsChainViewer({
   const underlyingShares = positions.find(p => p.symbol === symbol)?.qty;
   const sharesOwned = underlyingShares ? parseInt(underlyingShares) : 0;
 
-  // Filter chain by selected expiration and delta range
+  // Helper to determine moneyness
+  const getMoneyness = useCallback((strike: number, type: 'call' | 'put'): 'ITM' | 'ATM' | 'OTM' => {
+    if (!stockPrice) return 'OTM';
+    const pctDiff = Math.abs((strike - stockPrice) / stockPrice);
+    
+    if (pctDiff <= 0.02) return 'ATM';
+    
+    if (type === 'call') {
+      return strike < stockPrice ? 'ITM' : 'OTM';
+    } else {
+      return strike > stockPrice ? 'ITM' : 'OTM';
+    }
+  }, [stockPrice]);
+
+  // Filter chain by all criteria
   const filteredChain = useMemo(() => {
     return chain.filter(entry => {
       // Expiration filter
       if (selectedExpiration && entry.contract.expiration !== selectedExpiration) {
         return false;
       }
+      
       // Delta filter
       if (entry.greeks) {
         const absDelta = Math.abs(entry.greeks.delta);
@@ -135,9 +160,47 @@ export function OptionsChainViewer({
           return false;
         }
       }
+      
+      // Moneyness filter
+      if (moneynessFilter !== 'all' && stockPrice) {
+        const moneyness = getMoneyness(entry.contract.strike, entry.contract.type);
+        const pctDiff = Math.abs((entry.contract.strike - stockPrice) / stockPrice);
+        
+        switch (moneynessFilter) {
+          case 'itm':
+            if (moneyness !== 'ITM') return false;
+            break;
+          case 'atm':
+            if (moneyness !== 'ATM') return false;
+            break;
+          case 'otm':
+            if (moneyness !== 'OTM') return false;
+            break;
+          case 'near-atm':
+            if (pctDiff > 0.05) return false; // Within 5% of ATM
+            break;
+        }
+      }
+      
+      // Volume filter
+      const volume = entry.quote?.volume || entry.contract.volume || 0;
+      if (volume < minVolume) return false;
+      
+      // Open Interest filter
+      if (entry.contract.openInterest < minOpenInterest) return false;
+      
+      // Spread filter
+      if (entry.quote && maxSpread !== Infinity) {
+        const spread = entry.quote.ask - entry.quote.bid;
+        const spreadPercent = entry.quote.bid > 0 ? (spread / entry.quote.bid) * 100 : Infinity;
+        if (showSpreadPercent ? spreadPercent > maxSpread : spread > maxSpread) {
+          return false;
+        }
+      }
+      
       return true;
     });
-  }, [chain, selectedExpiration, deltaRange]);
+  }, [chain, selectedExpiration, deltaRange, moneynessFilter, stockPrice, minVolume, minOpenInterest, maxSpread, showSpreadPercent, getMoneyness]);
 
   // Separate calls and puts
   const calls = filteredChain.filter(e => e.contract.type === 'call');
@@ -149,6 +212,13 @@ export function OptionsChainViewer({
   // Calculate max open interest for heat map
   const maxOI = useMemo(() => {
     return Math.max(...filteredChain.map(e => e.contract.openInterest || 0), 1);
+  }, [filteredChain]);
+
+  // Calculate average IV
+  const avgIV = useMemo(() => {
+    const withIV = filteredChain.filter(e => e.greeks?.iv);
+    if (withIV.length === 0) return null;
+    return withIV.reduce((sum, e) => sum + (e.greeks?.iv || 0), 0) / withIV.length;
   }, [filteredChain]);
 
   // Calculate days to expiry
@@ -174,11 +244,19 @@ export function OptionsChainViewer({
     return `$${value.toFixed(2)}`;
   };
 
-  const getMoneyness = (strike: number) => {
-    if (!stockPrice) return '';
-    if (strike < stockPrice * 0.98) return 'ITM';
-    if (strike > stockPrice * 1.02) return 'OTM';
-    return 'ATM';
+  const getSpreadDisplay = (quote: OptionsChainEntry['quote']) => {
+    if (!quote) return '-';
+    const spread = quote.ask - quote.bid;
+    const spreadPct = quote.bid > 0 ? (spread / quote.bid) * 100 : 0;
+    return showSpreadPercent ? `${spreadPct.toFixed(1)}%` : `$${spread.toFixed(2)}`;
+  };
+
+  const getSpreadColor = (quote: OptionsChainEntry['quote']) => {
+    if (!quote) return 'text-gray-500';
+    const spreadPct = quote.bid > 0 ? ((quote.ask - quote.bid) / quote.bid) * 100 : 100;
+    if (spreadPct <= 5) return 'text-green-400';
+    if (spreadPct <= 10) return 'text-yellow-400';
+    return 'text-red-400';
   };
 
   return (
@@ -194,6 +272,11 @@ export function OptionsChainViewer({
               <span className="text-lg font-normal text-green-400">
                 ${stockPrice.toFixed(2)}
               </span>
+              {avgIV && (
+                <span className="text-sm font-normal text-yellow-400">
+                  Avg IV: {(avgIV * 100).toFixed(1)}%
+                </span>
+              )}
             </div>
           )}
         </CardTitle>
@@ -234,67 +317,123 @@ export function OptionsChainViewer({
           </div>
         </form>
 
-        {/* Filters */}
+        {/* Expiration Tabs */}
+        {expirations.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm text-gray-400">Expiration:</span>
+              <div className="flex-1 overflow-x-auto">
+                <div className="flex gap-1">
+                  {expirations.slice(0, 8).map(exp => {
+                    const dte = getDaysToExpiry(exp);
+                    const isSelected = exp === selectedExpiration;
+                    return (
+                      <button
+                        key={exp}
+                        onClick={() => setSelectedExpiration(exp)}
+                        className={`px-3 py-1.5 text-xs rounded-lg whitespace-nowrap transition-all ${
+                          isSelected
+                            ? 'bg-blue-600 text-white shadow-lg'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                        }`}
+                      >
+                        {new Date(exp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        <span className={`ml-1 ${dte <= 7 ? 'text-orange-400' : ''}`}>
+                          ({dte}d)
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {expirations.length > 8 && (
+                    <Select
+                      value={selectedExpiration}
+                      onChange={(e) => setSelectedExpiration(e.target.value)}
+                      options={expirations.slice(8).map(exp => ({
+                        value: exp,
+                        label: `${new Date(exp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} (${getDaysToExpiry(exp)}d)`,
+                      }))}
+                      className="bg-gray-800 border-gray-700 text-xs"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filters Row */}
         {expirations.length > 0 && (
           <div className="space-y-3 mb-4">
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-end">
+              {/* Type Filter */}
               <div className="flex-1">
-                <label className="text-sm text-gray-400">Expiration</label>
-                <Select
-                  value={selectedExpiration}
-                  onChange={(e) => setSelectedExpiration(e.target.value)}
-                  options={expirations.map(exp => {
-                    const dte = getDaysToExpiry(exp);
-                    return {
-                      value: exp,
-                      label: `${new Date(exp).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric',
-                      })} (${dte}d)`,
-                    };
-                  })}
-                  className="mt-1 bg-gray-800 border-gray-700"
-                />
+                <label className="text-xs text-gray-400 mb-1 block">Type</label>
+                <div className="flex gap-1">
+                  {(['all', 'call', 'put'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setOptionType(t)}
+                      className={`flex-1 px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                        optionType === t
+                          ? t === 'call' ? 'bg-green-600 text-white' : t === 'put' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
+                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                      }`}
+                    >
+                      {t === 'all' ? '📊 All' : t === 'call' ? '📈 Calls' : '📉 Puts'}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Moneyness Filter */}
               <div className="flex-1">
-                <label className="text-sm text-gray-400">Type</label>
-                <Select
-                  value={optionType}
-                  onChange={(e) => setOptionType(e.target.value as 'call' | 'put' | 'all')}
-                  options={[
-                    { value: 'all', label: '📊 All' },
-                    { value: 'call', label: '📈 Calls Only' },
-                    { value: 'put', label: '📉 Puts Only' },
-                  ]}
-                  className="mt-1 bg-gray-800 border-gray-700"
-                />
+                <label className="text-xs text-gray-400 mb-1 block">Moneyness</label>
+                <div className="flex gap-1">
+                  {([
+                    { value: 'all', label: 'All' },
+                    { value: 'near-atm', label: 'Near ATM' },
+                    { value: 'itm', label: 'ITM' },
+                    { value: 'otm', label: 'OTM' },
+                  ] as const).map(m => (
+                    <button
+                      key={m.value}
+                      onClick={() => setMoneynessFilter(m.value)}
+                      className={`flex-1 px-2 py-1.5 text-xs rounded-lg transition-colors ${
+                        moneynessFilter === m.value
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-end">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className="border-gray-700"
-                >
-                  {showAdvancedFilters ? '▲ Less' : '▼ More'}
-                </Button>
-              </div>
+
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="border-gray-700"
+              >
+                {showAdvancedFilters ? '▲ Less' : '▼ More'}
+              </Button>
             </div>
 
             {/* Advanced Filters */}
             {showAdvancedFilters && (
-              <div className="bg-gray-800 rounded-lg p-3 space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-400">Delta Range</span>
-                    <span className="text-gray-300">
-                      {(deltaRange[0] * 100).toFixed(0)}% - {(deltaRange[1] * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs text-gray-500">Min Delta</label>
+              <div className="bg-gray-800 rounded-lg p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Delta Range */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-2">
+                      <span className="text-gray-400">Delta Range</span>
+                      <span className="text-gray-300">
+                        {(deltaRange[0] * 100).toFixed(0)}% - {(deltaRange[1] * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
                       <Slider
                         value={deltaRange[0]}
                         onChange={(val) => setDeltaRange([val, Math.max(val, deltaRange[1])])}
@@ -303,9 +442,6 @@ export function OptionsChainViewer({
                         step={0.05}
                         showValue={false}
                       />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">Max Delta</label>
                       <Slider
                         value={deltaRange[1]}
                         onChange={(val) => setDeltaRange([Math.min(deltaRange[0], val), val])}
@@ -315,41 +451,162 @@ export function OptionsChainViewer({
                         showValue={false}
                       />
                     </div>
+                    <div className="flex gap-2 mt-2">
+                      <button 
+                        onClick={() => setDeltaRange([0.15, 0.35])}
+                        className="px-2 py-1 text-[10px] bg-gray-700 rounded hover:bg-gray-600"
+                      >
+                        📞 Covered Call
+                      </button>
+                      <button 
+                        onClick={() => setDeltaRange([0.25, 0.35])}
+                        className="px-2 py-1 text-[10px] bg-gray-700 rounded hover:bg-gray-600"
+                      >
+                        💵 CSP Sweet Spot
+                      </button>
+                      <button 
+                        onClick={() => setDeltaRange([0.40, 0.60])}
+                        className="px-2 py-1 text-[10px] bg-gray-700 rounded hover:bg-gray-600"
+                      >
+                        🎯 ATM (40-60Δ)
+                      </button>
+                      <button 
+                        onClick={() => setDeltaRange([0, 1])}
+                        className="px-2 py-1 text-[10px] bg-gray-700 rounded hover:bg-gray-600"
+                      >
+                        Reset
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Deep OTM</span>
-                    <span>ATM (50Δ)</span>
-                    <span>Deep ITM</span>
+
+                  {/* Spread Filter */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-2">
+                      <span className="text-gray-400">
+                        Max Spread ({showSpreadPercent ? '%' : '$'})
+                        <button 
+                          onClick={() => setShowSpreadPercent(!showSpreadPercent)}
+                          className="ml-1 text-blue-400 hover:text-blue-300"
+                        >
+                          [toggle]
+                        </button>
+                      </span>
+                      <span className="text-gray-300">
+                        {maxSpread === Infinity ? 'Any' : showSpreadPercent ? `${maxSpread}%` : `$${maxSpread}`}
+                      </span>
+                    </div>
+                    <Slider
+                      value={maxSpread === Infinity ? 50 : maxSpread}
+                      onChange={(val) => setMaxSpread(val >= 50 ? Infinity : val)}
+                      min={1}
+                      max={50}
+                      step={1}
+                      showValue={false}
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <button 
+                        onClick={() => setMaxSpread(5)}
+                        className="px-2 py-1 text-[10px] bg-gray-700 rounded hover:bg-gray-600"
+                      >
+                        Tight (≤5%)
+                      </button>
+                      <button 
+                        onClick={() => setMaxSpread(10)}
+                        className="px-2 py-1 text-[10px] bg-gray-700 rounded hover:bg-gray-600"
+                      >
+                        Normal (≤10%)
+                      </button>
+                      <button 
+                        onClick={() => setMaxSpread(Infinity)}
+                        className="px-2 py-1 text-[10px] bg-gray-700 rounded hover:bg-gray-600"
+                      >
+                        Any
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setDeltaRange([0.15, 0.35])}
-                    className="text-xs border-gray-600"
-                  >
-                    📞 Covered Call (15-35Δ)
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setDeltaRange([0.25, 0.35])}
-                    className="text-xs border-gray-600"
-                  >
-                    💵 CSP Sweet Spot (25-35Δ)
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setDeltaRange([0, 1])}
-                    className="text-xs border-gray-600"
-                  >
-                    Reset
-                  </Button>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Volume Filter */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-2">
+                      <span className="text-gray-400">Min Volume</span>
+                      <span className="text-gray-300">{minVolume > 0 ? minVolume.toLocaleString() : 'Any'}</span>
+                    </div>
+                    <Slider
+                      value={minVolume}
+                      onChange={setMinVolume}
+                      min={0}
+                      max={1000}
+                      step={50}
+                      showValue={false}
+                    />
+                  </div>
+
+                  {/* Open Interest Filter */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-2">
+                      <span className="text-gray-400">Min Open Interest</span>
+                      <span className="text-gray-300">{minOpenInterest > 0 ? minOpenInterest.toLocaleString() : 'Any'}</span>
+                    </div>
+                    <Slider
+                      value={minOpenInterest}
+                      onChange={setMinOpenInterest}
+                      min={0}
+                      max={5000}
+                      step={100}
+                      showValue={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Filter Presets */}
+                <div className="pt-2 border-t border-gray-700">
+                  <div className="text-xs text-gray-400 mb-2">Quick Presets:</div>
+                  <div className="flex gap-2 flex-wrap">
+                    <button 
+                      onClick={() => {
+                        setDeltaRange([0.15, 0.35]);
+                        setMaxSpread(10);
+                        setMinOpenInterest(100);
+                      }}
+                      className="px-3 py-1.5 text-xs bg-blue-600 rounded hover:bg-blue-500"
+                    >
+                      🎯 Best for Selling
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setDeltaRange([0.40, 0.60]);
+                        setMaxSpread(5);
+                        setMinVolume(100);
+                      }}
+                      className="px-3 py-1.5 text-xs bg-green-600 rounded hover:bg-green-500"
+                    >
+                      📈 Best for Buying
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setMoneynessFilter('near-atm');
+                        setMinOpenInterest(500);
+                        setMaxSpread(10);
+                      }}
+                      className="px-3 py-1.5 text-xs bg-purple-600 rounded hover:bg-purple-500"
+                    >
+                      💧 High Liquidity
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setDeltaRange([0, 1]);
+                        setMaxSpread(Infinity);
+                        setMinVolume(0);
+                        setMinOpenInterest(0);
+                        setMoneynessFilter('all');
+                      }}
+                      className="px-3 py-1.5 text-xs bg-gray-600 rounded hover:bg-gray-500"
+                    >
+                      🔄 Reset All
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -377,8 +634,9 @@ export function OptionsChainViewer({
         {filteredChain.length > 0 && (
           <div className="mb-4 flex items-center justify-between text-xs text-gray-400">
             <span>
-              📊 {filteredChain.length} contracts | 
-              {selectedExpiration && ` ${getDaysToExpiry(selectedExpiration)} DTE`}
+              📊 {filteredChain.length} contracts
+              {chain.length !== filteredChain.length && ` (${chain.length - filteredChain.length} filtered out)`}
+              {selectedExpiration && ` | ${getDaysToExpiry(selectedExpiration)} DTE`}
             </span>
             <div className="flex gap-2">
               <button 
@@ -403,21 +661,22 @@ export function OptionsChainViewer({
             <Table>
               <TableHeader>
                 <TableRow className="border-gray-700">
-                  <TableHead colSpan={7} className="text-center bg-green-900/30 text-green-400 border-b border-gray-700">
+                  <TableHead colSpan={8} className="text-center bg-green-900/30 text-green-400 border-b border-gray-700">
                     📈 CALLS
                   </TableHead>
                   <TableHead className="text-center bg-gray-800 border-x border-gray-700">Strike</TableHead>
-                  <TableHead colSpan={7} className="text-center bg-red-900/30 text-red-400 border-b border-gray-700">
+                  <TableHead colSpan={8} className="text-center bg-red-900/30 text-red-400 border-b border-gray-700">
                     📉 PUTS
                   </TableHead>
                 </TableRow>
                 <TableRow className="border-gray-700 text-gray-400">
                   {/* Call columns */}
+                  <TableHead className="text-right text-xs">Vol</TableHead>
                   <TableHead className="text-right text-xs">OI</TableHead>
                   <TableHead className="text-right text-xs">Bid</TableHead>
                   <TableHead className="text-right text-xs">Ask</TableHead>
+                  <TableHead className="text-right text-xs">Sprd</TableHead>
                   <TableHead className="text-right text-xs">Δ</TableHead>
-                  <TableHead className="text-right text-xs">Γ</TableHead>
                   <TableHead className="text-right text-xs">Θ</TableHead>
                   <TableHead className="text-right text-xs">IV</TableHead>
                   {/* Strike */}
@@ -425,18 +684,19 @@ export function OptionsChainViewer({
                   {/* Put columns */}
                   <TableHead className="text-right text-xs">IV</TableHead>
                   <TableHead className="text-right text-xs">Θ</TableHead>
-                  <TableHead className="text-right text-xs">Γ</TableHead>
                   <TableHead className="text-right text-xs">Δ</TableHead>
+                  <TableHead className="text-right text-xs">Sprd</TableHead>
                   <TableHead className="text-right text-xs">Bid</TableHead>
                   <TableHead className="text-right text-xs">Ask</TableHead>
                   <TableHead className="text-right text-xs">OI</TableHead>
+                  <TableHead className="text-right text-xs">Vol</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {strikes.map((strike) => {
                   const call = calls.find(c => c.contract.strike === strike);
                   const put = puts.find(p => p.contract.strike === strike);
-                  const moneyness = getMoneyness(strike);
+                  const moneyness = stockPrice ? getMoneyness(strike, 'call') : null;
                   const isATM = moneyness === 'ATM';
                   const isSelected = selectedContract?.contract.strike === strike;
                   
@@ -453,6 +713,10 @@ export function OptionsChainViewer({
                         isATM ? 'bg-yellow-900/20' : ''
                       } ${isSelected ? 'bg-blue-900/30' : ''}`}
                     >
+                      {/* Call Volume */}
+                      <TableCell className="text-right text-xs text-gray-400">
+                        {call?.quote?.volume || call?.contract.volume || '-'}
+                      </TableCell>
                       {/* Call OI with heat map */}
                       <TableCell 
                         className="text-right text-xs"
@@ -462,7 +726,7 @@ export function OptionsChainViewer({
                       >
                         {callOI > 0 ? callOI.toLocaleString() : '-'}
                       </TableCell>
-                      {/* Call data */}
+                      {/* Call bid */}
                       <TableCell 
                         className={`text-right cursor-pointer transition-colors ${
                           call === selectedContract ? 'bg-green-900/50' : 'hover:bg-green-900/30'
@@ -471,20 +735,25 @@ export function OptionsChainViewer({
                       >
                         <span className="font-mono text-green-400">{formatPrice(call?.quote?.bid)}</span>
                       </TableCell>
+                      {/* Call ask */}
                       <TableCell className="text-right">
                         <span className="font-mono text-gray-300">{formatPrice(call?.quote?.ask)}</span>
                       </TableCell>
+                      {/* Call spread */}
+                      <TableCell className={`text-right text-xs ${getSpreadColor(call?.quote || null)}`}>
+                        {getSpreadDisplay(call?.quote || null)}
+                      </TableCell>
+                      {/* Call delta */}
                       <TableCell className="text-right text-xs">
                         <span className={call?.greeks?.delta && call.greeks.delta >= 0 ? 'text-green-400' : 'text-red-400'}>
                           {formatGreek(call?.greeks?.delta, 2)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right text-xs text-purple-400">
-                        {formatGreek(call?.greeks?.gamma)}
-                      </TableCell>
+                      {/* Call theta */}
                       <TableCell className="text-right text-xs text-red-400">
                         {formatGreek(call?.greeks?.theta, 2)}
                       </TableCell>
+                      {/* Call IV */}
                       <TableCell className="text-right text-xs text-blue-400">
                         {call?.greeks?.iv ? `${(call.greeks.iv * 100).toFixed(0)}%` : '-'}
                       </TableCell>
@@ -504,24 +773,29 @@ export function OptionsChainViewer({
                         </div>
                       </TableCell>
                       
-                      {/* Put data - mirrored order */}
+                      {/* Put IV */}
                       <TableCell className="text-right text-xs text-blue-400">
                         {put?.greeks?.iv ? `${(put.greeks.iv * 100).toFixed(0)}%` : '-'}
                       </TableCell>
+                      {/* Put theta */}
                       <TableCell className="text-right text-xs text-red-400">
                         {formatGreek(put?.greeks?.theta, 2)}
                       </TableCell>
-                      <TableCell className="text-right text-xs text-purple-400">
-                        {formatGreek(put?.greeks?.gamma)}
-                      </TableCell>
+                      {/* Put delta */}
                       <TableCell className="text-right text-xs">
                         <span className={put?.greeks?.delta && put.greeks.delta < 0 ? 'text-red-400' : 'text-green-400'}>
                           {formatGreek(put?.greeks?.delta, 2)}
                         </span>
                       </TableCell>
+                      {/* Put spread */}
+                      <TableCell className={`text-right text-xs ${getSpreadColor(put?.quote || null)}`}>
+                        {getSpreadDisplay(put?.quote || null)}
+                      </TableCell>
+                      {/* Put ask */}
                       <TableCell className="text-right">
                         <span className="font-mono text-gray-300">{formatPrice(put?.quote?.ask)}</span>
                       </TableCell>
+                      {/* Put bid */}
                       <TableCell 
                         className={`text-right cursor-pointer transition-colors ${
                           put === selectedContract ? 'bg-red-900/50' : 'hover:bg-red-900/30'
@@ -539,6 +813,10 @@ export function OptionsChainViewer({
                       >
                         {putOI > 0 ? putOI.toLocaleString() : '-'}
                       </TableCell>
+                      {/* Put Volume */}
+                      <TableCell className="text-right text-xs text-gray-400">
+                        {put?.quote?.volume || put?.contract.volume || '-'}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -553,103 +831,150 @@ export function OptionsChainViewer({
             {/* Calls Column */}
             <div className="space-y-2">
               <div className="text-center text-green-400 font-medium text-sm mb-2">📈 Calls</div>
-              {calls.slice(0, 10).map((entry) => (
-                <div
-                  key={entry.contract.symbol}
-                  onClick={() => handleContractClick(entry)}
-                  className={`p-3 rounded-lg cursor-pointer transition-all ${
-                    entry === selectedContract 
-                      ? 'bg-green-900/50 border border-green-500' 
-                      : 'bg-gray-800 hover:bg-gray-750 border border-gray-700'
-                  }`}
-                >
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-bold text-white">${entry.contract.strike}</span>
-                    <Badge variant={getMoneyness(entry.contract.strike) === 'ITM' ? 'success' : 'secondary'} className="text-[10px]">
-                      {getMoneyness(entry.contract.strike)}
-                    </Badge>
+              {calls.slice(0, 10).map((entry) => {
+                const moneyness = stockPrice ? getMoneyness(entry.contract.strike, 'call') : null;
+                return (
+                  <div
+                    key={entry.contract.symbol}
+                    onClick={() => handleContractClick(entry)}
+                    className={`p-3 rounded-lg cursor-pointer transition-all ${
+                      entry === selectedContract 
+                        ? 'bg-green-900/50 border border-green-500' 
+                        : 'bg-gray-800 hover:bg-gray-750 border border-gray-700'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-white">${entry.contract.strike}</span>
+                      <Badge variant={moneyness === 'ITM' ? 'success' : 'secondary'} className="text-[10px]">
+                        {moneyness}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-gray-400">Bid</span>
+                      <span className="font-mono text-green-400">${entry.quote?.bid.toFixed(2) || '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-xs mb-2">
+                      <span className="text-gray-500">Spread</span>
+                      <span className={getSpreadColor(entry.quote)}>{getSpreadDisplay(entry.quote)}</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1 text-xs text-center">
+                      <div>
+                        <div className="text-gray-500">Δ</div>
+                        <div className="text-green-400">{entry.greeks?.delta.toFixed(2) || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Γ</div>
+                        <div className="text-purple-400">{entry.greeks?.gamma.toFixed(3) || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Θ</div>
+                        <div className="text-red-400">{entry.greeks?.theta.toFixed(2) || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">IV</div>
+                        <div className="text-blue-400">{entry.greeks?.iv ? `${(entry.greeks.iv * 100).toFixed(0)}%` : '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">OI</div>
+                        <div className="text-gray-300">{entry.contract.openInterest || '-'}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Bid</span>
-                    <span className="font-mono text-green-400">${entry.quote?.bid.toFixed(2) || '-'}</span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1 mt-2 text-xs text-center">
-                    <div>
-                      <div className="text-gray-500">Δ</div>
-                      <div className="text-green-400">{entry.greeks?.delta.toFixed(2) || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Θ</div>
-                      <div className="text-red-400">{entry.greeks?.theta.toFixed(2) || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">IV</div>
-                      <div className="text-blue-400">{entry.greeks?.iv ? `${(entry.greeks.iv * 100).toFixed(0)}%` : '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">OI</div>
-                      <div className="text-gray-300">{entry.contract.openInterest || '-'}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             
             {/* Puts Column */}
             <div className="space-y-2">
               <div className="text-center text-red-400 font-medium text-sm mb-2">📉 Puts</div>
-              {puts.slice(0, 10).map((entry) => (
-                <div
-                  key={entry.contract.symbol}
-                  onClick={() => handleContractClick(entry)}
-                  className={`p-3 rounded-lg cursor-pointer transition-all ${
-                    entry === selectedContract 
-                      ? 'bg-red-900/50 border border-red-500' 
-                      : 'bg-gray-800 hover:bg-gray-750 border border-gray-700'
-                  }`}
-                >
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-bold text-white">${entry.contract.strike}</span>
-                    <Badge variant={getMoneyness(entry.contract.strike) === 'ITM' ? 'destructive' : 'secondary'} className="text-[10px]">
-                      {getMoneyness(entry.contract.strike)}
-                    </Badge>
+              {puts.slice(0, 10).map((entry) => {
+                const moneyness = stockPrice ? getMoneyness(entry.contract.strike, 'put') : null;
+                return (
+                  <div
+                    key={entry.contract.symbol}
+                    onClick={() => handleContractClick(entry)}
+                    className={`p-3 rounded-lg cursor-pointer transition-all ${
+                      entry === selectedContract 
+                        ? 'bg-red-900/50 border border-red-500' 
+                        : 'bg-gray-800 hover:bg-gray-750 border border-gray-700'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-white">${entry.contract.strike}</span>
+                      <Badge variant={moneyness === 'ITM' ? 'destructive' : 'secondary'} className="text-[10px]">
+                        {moneyness}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-gray-400">Bid</span>
+                      <span className="font-mono text-red-400">${entry.quote?.bid.toFixed(2) || '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-xs mb-2">
+                      <span className="text-gray-500">Spread</span>
+                      <span className={getSpreadColor(entry.quote)}>{getSpreadDisplay(entry.quote)}</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1 text-xs text-center">
+                      <div>
+                        <div className="text-gray-500">Δ</div>
+                        <div className="text-red-400">{entry.greeks?.delta.toFixed(2) || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Γ</div>
+                        <div className="text-purple-400">{entry.greeks?.gamma.toFixed(3) || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Θ</div>
+                        <div className="text-red-400">{entry.greeks?.theta.toFixed(2) || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">IV</div>
+                        <div className="text-blue-400">{entry.greeks?.iv ? `${(entry.greeks.iv * 100).toFixed(0)}%` : '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">OI</div>
+                        <div className="text-gray-300">{entry.contract.openInterest || '-'}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Bid</span>
-                    <span className="font-mono text-red-400">${entry.quote?.bid.toFixed(2) || '-'}</span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1 mt-2 text-xs text-center">
-                    <div>
-                      <div className="text-gray-500">Δ</div>
-                      <div className="text-red-400">{entry.greeks?.delta.toFixed(2) || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Θ</div>
-                      <div className="text-red-400">{entry.greeks?.theta.toFixed(2) || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">IV</div>
-                      <div className="text-blue-400">{entry.greeks?.iv ? `${(entry.greeks.iv * 100).toFixed(0)}%` : '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">OI</div>
-                      <div className="text-gray-300">{entry.contract.openInterest || '-'}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        {!loading && filteredChain.length === 0 && symbol && (
+        {!loading && filteredChain.length === 0 && symbol && chain.length > 0 && (
+          <div className="text-center py-12">
+            <div className="text-4xl mb-3">🔍</div>
+            <p className="text-gray-400 mb-2">
+              No contracts match your filters
+            </p>
+            <p className="text-gray-500 text-sm mb-4">
+              {chain.length} contracts available, but filtered out
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setDeltaRange([0, 1]);
+                setMaxSpread(Infinity);
+                setMinVolume(0);
+                setMinOpenInterest(0);
+                setMoneynessFilter('all');
+              }}
+            >
+              Reset Filters
+            </Button>
+          </div>
+        )}
+
+        {!loading && filteredChain.length === 0 && symbol && chain.length === 0 && (
           <div className="text-center py-12">
             <div className="text-4xl mb-3">🔍</div>
             <p className="text-gray-400 mb-2">
               No options contracts found for <strong className="text-white">{symbol}</strong>
             </p>
             <p className="text-gray-500 text-sm">
-              Try adjusting filters or searching a different symbol
+              Try a different symbol or expiration date
             </p>
           </div>
         )}
@@ -680,6 +1005,9 @@ export function OptionsChainViewer({
               <span><span className="inline-block w-3 h-3 bg-green-500/30 rounded mr-1"></span> High Call OI</span>
               <span><span className="inline-block w-3 h-3 bg-red-500/30 rounded mr-1"></span> High Put OI</span>
               <span><span className="inline-block w-3 h-3 bg-yellow-900/50 rounded mr-1"></span> ATM</span>
+              <span className="text-green-400">●</span> Tight spread
+              <span className="text-yellow-400">●</span> Normal spread
+              <span className="text-red-400">●</span> Wide spread
             </div>
             <span>Click bid price to select contract</span>
           </div>
