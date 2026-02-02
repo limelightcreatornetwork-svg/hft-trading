@@ -146,26 +146,23 @@ describe('Momentum Scanner', () => {
   describe('detectRegime', () => {
     it('should return ranging for insufficient data', () => {
       const prices = Array.from({ length: 30 }, () => 100);
-      expect(detectRegime(prices, 1)).toBe('ranging');
+      expect(detectRegime(prices)).toBe('ranging');
     });
 
     it('should detect trending up', () => {
       const prices = Array.from({ length: 60 }, (_, i) => 100 + i * 0.5);
-      const atr = 2;
-      expect(detectRegime(prices, atr)).toBe('trending_up');
+      expect(detectRegime(prices)).toBe('trending_up');
     });
 
     it('should detect trending down', () => {
       const prices = Array.from({ length: 60 }, (_, i) => 100 - i * 0.5);
-      const atr = 2;
-      expect(detectRegime(prices, atr)).toBe('trending_down');
+      expect(detectRegime(prices)).toBe('trending_down');
     });
 
     it('should detect ranging market', () => {
       // Oscillating prices
       const prices = Array.from({ length: 60 }, (_, i) => 100 + Math.sin(i / 5) * 2);
-      const atr = 4;
-      expect(detectRegime(prices, atr)).toBe('ranging');
+      expect(detectRegime(prices)).toBe('ranging');
     });
   });
 

@@ -5,7 +5,8 @@ import { PrismaClient } from '@prisma/client';
 // Configure WebSocket for Neon serverless (only in Node.js environment)
 if (typeof globalThis.WebSocket === 'undefined') {
   try {
-    // Dynamic import to avoid issues during build
+    // Dynamic require needed for conditional WebSocket polyfill
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ws = require('ws');
     neonConfig.webSocketConstructor = ws;
   } catch {

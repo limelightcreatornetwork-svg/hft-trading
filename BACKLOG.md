@@ -135,13 +135,16 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | React hook lint errors fixed (research/scanner) | 18 | 2026-02-02 |
 | Unused variable cleanup + type safety | 19 | 2026-02-02 |
 | More lint cleanup - unused variables | 20 | 2026-02-02 |
+| React Hook useEffect dependencies | 21 | 2026-02-02 |
+| Final lint cleanup (2 warnings remaining) | 22 | 2026-02-02 |
 
 ---
 
 ## Notes
 
-### Code Quality Metrics (Updated Cycle 16)
+### Code Quality Metrics (Updated Cycle 22)
 - **Test Coverage**: 296 tests across 14 test suites
+- **Lint Status**: 2 warnings (reserved state for future feature), 0 errors
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on critical endpoints
 - **Observability**: Audit logging + health checks
