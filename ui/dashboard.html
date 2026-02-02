@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HFT Trading Dashboard - Alpaca & Kalshi</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-green: #3fb950;
+            --accent-red: #f85149;
+            --accent-yellow: #d29922;
+            --accent-blue: #58a6ff;
+            --border: #30363d;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-blue);
+        }
+        
+        .logo-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+        
+        .status-item {
+            text-align: center;
+        }
+        
+        .status-value {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+        
+        .status-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .status-positive { color: var(--accent-green); }
+        .status-negative { color: var(--accent-red); }
+        .status-warning { color: var(--accent-yellow); }
+        
+        /* Kill Switch Button */
+        .kill-switch {
+            padding: 12px 24px;
+            background: var(--accent-red);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .kill-switch:hover {
+            background: #da3633;
+            transform: scale(1.05);
+        }
+        
+        .kill-switch.active {
+            background: var(--accent-yellow);
+            animation: pulse 2s infinite;
+        }
+        
+        .kill-switch:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: var(--text-secondary);
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Error State */
+        .error {
+            color: var(--accent-red);
+            padding: 20px;
+            text-align: center;
+        }
+        
+        /* Connection Status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+        
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+        }
+        
+        .connection-dot.disconnected {
+            background: var(--accent-red);
+        }
+        
+        .connection-dot.connecting {
+            background: var(--accent-yellow);
+            animation: pulse 1s infinite;
+        }
+        
+        /* Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        
+        /* Cards */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-title {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        th {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+        
+        tr:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        /* Risk Metrics */
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .metric {
+            background: var(--bg-tertiary);
+            padding: 15px;
+            border-radius: 6px;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background: var(--bg-primary);
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-green);
+            transition: width 0.3s;
+        }
+        
+        .progress-fill.warning { background: var(--accent-yellow); }
+        .progress-fill.danger { background: var(--accent-red); }
+        
+        /* Controls Panel */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .control-btn {
+            padding: 10px 15px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .control-btn:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-blue);
+        }
+        
+        .control-btn.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+        
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Feed */
+        .feed-item {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .feed-time {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .feed-message {
+            font-size: 0.9rem;
+        }
+        
+        .feed-message.critical {
+            color: var(--accent-red);
+            font-weight: bold;
+        }
+        
+        .feed-message.warning {
+            color: var(--accent-yellow);
+        }
+        
+        /* Service Status */
+        .service-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .service-name {
+            font-weight: 500;
+        }
+        
+        .service-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .service-status.operational {
+            background: rgba(63, 185, 80, 0.2);
+            color: var(--accent-green);
+        }
+        
+        .service-status.degraded {
+            background: rgba(210, 153, 34, 0.2);
+            color: var(--accent-yellow);
+        }
+        
+        .service-status.outage {
+            background: rgba(248, 81, 73, 0.2);
+            color: var(--accent-red);
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-overlay.active { display: flex; }
+        
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .modal h2 {
+            margin-bottom: 20px;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .btn-primary { background: var(--accent-blue); color: white; }
+        .btn-danger { background: var(--accent-red); color: white; }
+        .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .status-bar {
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+            
+            header {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div>
+            <div class="logo">📊 HFT Trading Dashboard</div>
+            <div class="logo-subtitle">Alpaca & Kalshi • <span id="trading-mode">Paper Mode</span></div>
+        </div>
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-value" id="balance">--</div>
+                <div class="status-label">Equity</div>
+            </div>
+            <div class="status-item">
+                <div class="status-value" id="daily-pnl">--</div>
+                <div class="status-label">Daily P&L</div>
+            </div>
+            <div class="status-item">
+                <div class="status-value" id="positions-count">--</div>
+                <div class="status-label">Positions</div>
+            </div>
+            <div class="status-item">
+                <div class="status-value status-positive" id="system-status">● Loading</div>
+                <div class="status-label">System Status</div>
+            </div>
+            <div class="connection-status">
+                <div class="connection-dot connecting" id="ws-status"></div>
+                <span id="ws-text">Connecting...</span>
+            </div>
+        </div>
+        <button class="kill-switch" id="kill-switch" onclick="toggleKillSwitch()" disabled>
+            🛑 KILL SWITCH
+        </button>
+    </header>
+
+    <!-- Main Dashboard -->
+    <div class="container">
+        <div class="dashboard-grid">
+            
+            <!-- Positions Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Open Positions</span>
+                    <span class="text-secondary" id="position-value">Loading...</span>
+                </div>
+                <div class="card-body">
+                    <div id="positions-loading" class="loading">
+                        <div class="spinner"></div>
+                        <span>Loading positions...</span>
+                    </div>
+                    <div id="positions-error" class="error" style="display: none;"></div>
+                    <table id="positions-table" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Side</th>
+                                <th>Qty</th>
+                                <th>Entry</th>
+                                <th>Current</th>
+                                <th>P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positions-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Risk Metrics Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Risk Metrics</span>
+                    <span class="text-secondary" id="risk-mode">Loading...</span>
+                </div>
+                <div class="card-body">
+                    <div class="metric-grid">
+                        <div class="metric">
+                            <div class="metric-value" id="exposure-pct">--%</div>
+                            <div class="metric-label">Exposure / Limit</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="exposure-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="daily-loss-pct">--%</div>
+                            <div class="metric-label">Daily Loss / Limit</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="loss-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="drawdown">--%</div>
+                            <div class="metric-label">Drawdown</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="drawdown-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="circuit-breaker">● --</div>
+                            <div class="metric-label">Circuit Breaker</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Open Orders Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Open Orders</span>
+                    <button class="control-btn" onclick="cancelAllOrders()" id="cancel-all-btn" disabled>Cancel All</button>
+                </div>
+                <div class="card-body">
+                    <div id="orders-loading" class="loading">
+                        <div class="spinner"></div>
+                        <span>Loading orders...</span>
+                    </div>
+                    <div id="orders-error" class="error" style="display: none;"></div>
+                    <table id="orders-table" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Side</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Service Status Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Service Status</span>
+                </div>
+                <div class="card-body" id="services-container">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span>Checking services...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Controls Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Controls</span>
+                </div>
+                <div class="card-body">
+                    <div class="controls-grid">
+                        <button class="control-btn active" id="dry-run-btn" onclick="toggleDryRun()">
+                            🧪 Dry Run: ON
+                        </button>
+                        <button class="control-btn" onclick="resetCircuitBreaker()" id="reset-cb-btn">
+                            🔄 Reset Circuit Breaker
+                        </button>
+                        <button class="control-btn" onclick="closeAllPositions()" id="close-all-btn">
+                            📤 Close All Positions
+                        </button>
+                        <button class="control-btn" onclick="refreshData()">
+                            🔃 Refresh Data
+                        </button>
+                        <button class="control-btn" onclick="showLimitsModal()">
+                            ⚙️ Edit Limits
+                        </button>
+                        <button class="control-btn" onclick="showKalshiModal()">
+                            📈 Kalshi Balance
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Activity Card -->
+            <div class="card" style="grid-column: span 2;">
+                <div class="card-header">
+                    <span class="card-title">Recent Activity</span>
+                    <span class="text-secondary">Real-time updates</span>
+                </div>
+                <div class="card-body" id="activity-feed">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span>Loading activity...</span>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <!-- Kill Switch Modal -->
+    <div class="modal-overlay" id="kill-switch-modal">
+        <div class="modal">
+            <h2>⚠️ Confirm Kill Switch</h2>
+            <p>This will immediately:</p>
+            <ul style="margin: 15px 0; padding-left: 20px;">
+                <li>Cancel all open orders</li>
+                <li>Block all new orders</li>
+                <li>Optionally close all positions</li>
+            </ul>
+            <label style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
+                <input type="checkbox" id="close-positions-checkbox">
+                Also close all positions
+            </label>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('kill-switch-modal')">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmKillSwitch()">Activate Kill Switch</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Limits Modal -->
+    <div class="modal-overlay" id="limits-modal">
+        <div class="modal">
+            <h2>⚙️ Risk Limits</h2>
+            <div style="display: grid; gap: 15px;">
+                <div>
+                    <label style="display: block; margin-bottom: 5px;">Max Order Notional ($)</label>
+                    <input type="number" id="limit-order" value="10000" style="width: 100%; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary);">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px;">Max Position per Market ($)</label>
+                    <input type="number" id="limit-position" value="50000" style="width: 100%; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary);">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px;">Max Daily Loss ($)</label>
+                    <input type="number" id="limit-daily-loss" value="5000" style="width: 100%; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary);">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px;">Max Total Exposure ($)</label>
+                    <input type="number" id="limit-exposure" value="200000" style="width: 100%; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary);">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('limits-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveLimits()">Save Limits</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Kalshi Modal -->
+    <div class="modal-overlay" id="kalshi-modal">
+        <div class="modal">
+            <h2>📈 Kalshi Account</h2>
+            <div id="kalshi-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Loading Kalshi data...</span>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('kalshi-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // ============================================================================
+        // Configuration
+        // ============================================================================
+        
+        const API_BASE = window.location.origin;
+        const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+        
+        // ============================================================================
+        // State
+        // ============================================================================
+        
+        let state = {
+            initialized: false,
+            killSwitchActive: false,
+            dryRunMode: true,
+            ws: null,
+            wsReconnectAttempts: 0,
+        };
+        
+        // ============================================================================
+        // API Functions
+        // ============================================================================
+        
+        async function apiGet(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`API error for ${endpoint}:`, error);
+                throw error;
+            }
+        }
+        
+        async function apiPost(endpoint, data = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`API error for ${endpoint}:`, error);
+                throw error;
+            }
+        }
+        
+        async function apiDelete(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`API error for ${endpoint}:`, error);
+                throw error;
+            }
+        }
+        
+        // ============================================================================
+        // WebSocket
+        // ============================================================================
+        
+        function connectWebSocket() {
+            updateConnectionStatus('connecting');
+            
+            state.ws = new WebSocket(WS_URL);
+            
+            state.ws.onopen = () => {
+                console.log('WebSocket connected');
+                state.wsReconnectAttempts = 0;
+                updateConnectionStatus('connected');
+            };
+            
+            state.ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                handleWebSocketMessage(msg);
+            };
+            
+            state.ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                updateConnectionStatus('disconnected');
+                
+                // Reconnect with backoff
+                const delay = Math.min(1000 * Math.pow(2, state.wsReconnectAttempts), 30000);
+                state.wsReconnectAttempts++;
+                setTimeout(connectWebSocket, delay);
+            };
+            
+            state.ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function handleWebSocketMessage(msg) {
+            switch (msg.type) {
+                case 'connected':
+                    state.initialized = msg.data.initialized;
+                    document.getElementById('trading-mode').textContent = 
+                        msg.data.paper_mode ? 'Paper Mode' : '🔴 LIVE MODE';
+                    break;
+                    
+                case 'portfolio_update':
+                    document.getElementById('balance').textContent = `$${msg.data.equity}`;
+                    document.getElementById('positions-count').textContent = msg.data.position_count;
+                    break;
+                    
+                case 'risk_update':
+                    updateRiskDisplay(msg.data);
+                    break;
+                    
+                case 'kill_switch':
+                    state.killSwitchActive = msg.data.active;
+                    updateKillSwitchUI();
+                    break;
+                    
+                case 'activity':
+                    addActivityItem(msg.data);
+                    break;
+                    
+                case 'ping':
+                    state.ws.send(JSON.stringify({ type: 'pong' }));
+                    break;
+            }
+        }
+        
+        function updateConnectionStatus(status) {
+            const dot = document.getElementById('ws-status');
+            const text = document.getElementById('ws-text');
+            
+            dot.className = 'connection-dot ' + (status === 'connected' ? '' : 
+                            status === 'connecting' ? 'connecting' : 'disconnected');
+            text.textContent = status === 'connected' ? 'Live' : 
+                              status === 'connecting' ? 'Connecting...' : 'Disconnected';
+        }
+        
+        // ============================================================================
+        // Data Loading
+        // ============================================================================
+        
+        async function loadAccount() {
+            try {
+                const account = await apiGet('/api/account');
+                document.getElementById('balance').textContent = `$${account.equity}`;
+            } catch (error) {
+                document.getElementById('balance').textContent = 'Error';
+            }
+        }
+        
+        async function loadPositions() {
+            const loading = document.getElementById('positions-loading');
+            const error = document.getElementById('positions-error');
+            const table = document.getElementById('positions-table');
+            const body = document.getElementById('positions-body');
+            const value = document.getElementById('position-value');
+            
+            loading.style.display = 'flex';
+            error.style.display = 'none';
+            table.style.display = 'none';
+            
+            try {
+                const positions = await apiGet('/api/positions');
+                
+                loading.style.display = 'none';
+                
+                if (positions.length === 0) {
+                    body.innerHTML = `
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-secondary);">
+                                No open positions
+                            </td>
+                        </tr>
+                    `;
+                    value.textContent = '$0.00 exposure';
+                } else {
+                    let totalExposure = 0;
+                    let totalPnl = 0;
+                    
+                    body.innerHTML = positions.map(p => {
+                        const pnl = parseFloat(p.unrealized_pnl);
+                        totalExposure += Math.abs(parseFloat(p.market_value));
+                        totalPnl += pnl;
+                        
+                        return `
+                            <tr>
+                                <td><strong>${p.symbol}</strong></td>
+                                <td>${p.side}</td>
+                                <td>${p.qty}</td>
+                                <td>$${p.avg_entry_price}</td>
+                                <td>$${p.current_price}</td>
+                                <td class="${pnl >= 0 ? 'status-positive' : 'status-negative'}">
+                                    ${pnl >= 0 ? '+' : ''}$${p.unrealized_pnl} (${p.unrealized_pnl_pct}%)
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    value.textContent = `$${totalExposure.toFixed(2)} exposure`;
+                    
+                    // Update header P&L
+                    const pnlEl = document.getElementById('daily-pnl');
+                    pnlEl.textContent = `${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}`;
+                    pnlEl.className = `status-value ${totalPnl >= 0 ? 'status-positive' : 'status-negative'}`;
+                }
+                
+                document.getElementById('positions-count').textContent = positions.length;
+                table.style.display = 'table';
+                
+            } catch (err) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = `Failed to load positions: ${err.message}`;
+            }
+        }
+        
+        async function loadOrders() {
+            const loading = document.getElementById('orders-loading');
+            const error = document.getElementById('orders-error');
+            const table = document.getElementById('orders-table');
+            const body = document.getElementById('orders-body');
+            const cancelAllBtn = document.getElementById('cancel-all-btn');
+            
+            loading.style.display = 'flex';
+            error.style.display = 'none';
+            table.style.display = 'none';
+            
+            try {
+                const orders = await apiGet('/api/orders?status=open');
+                
+                loading.style.display = 'none';
+                cancelAllBtn.disabled = orders.length === 0;
+                
+                if (orders.length === 0) {
+                    body.innerHTML = `
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-secondary);">
+                                No open orders
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    body.innerHTML = orders.map(o => `
+                        <tr>
+                            <td><strong>${o.symbol}</strong></td>
+                            <td>${o.side}</td>
+                            <td>${o.qty}</td>
+                            <td>${o.limit_price ? `$${o.limit_price}` : 'Market'}</td>
+                            <td>${o.status}</td>
+                            <td>
+                                <button class="control-btn" onclick="cancelOrder('${o.order_id}')" style="padding: 4px 8px; font-size: 0.8rem;">
+                                    Cancel
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+                
+                table.style.display = 'table';
+                
+            } catch (err) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = `Failed to load orders: ${err.message}`;
+            }
+        }
+        
+        async function loadRiskStatus() {
+            try {
+                const risk = await apiGet('/api/risk');
+                
+                state.killSwitchActive = risk.kill_switch_active;
+                state.dryRunMode = risk.dry_run_mode;
+                
+                updateKillSwitchUI();
+                updateDryRunUI();
+                
+                document.getElementById('risk-mode').textContent = 
+                    risk.dry_run_mode ? 'Mode: Paper' : 'Mode: LIVE';
+                
+                document.getElementById('exposure-pct').textContent = `${parseFloat(risk.exposure_pct).toFixed(0)}%`;
+                const exposureBar = document.getElementById('exposure-bar');
+                exposureBar.style.width = `${Math.min(parseFloat(risk.exposure_pct), 100)}%`;
+                exposureBar.className = `progress-fill ${parseFloat(risk.exposure_pct) > 80 ? 'danger' : parseFloat(risk.exposure_pct) > 50 ? 'warning' : ''}`;
+                
+                document.getElementById('daily-loss-pct').textContent = `${parseFloat(risk.daily_loss_pct).toFixed(0)}%`;
+                const lossBar = document.getElementById('loss-bar');
+                lossBar.style.width = `${Math.min(parseFloat(risk.daily_loss_pct), 100)}%`;
+                lossBar.className = `progress-fill ${parseFloat(risk.daily_loss_pct) > 80 ? 'danger' : parseFloat(risk.daily_loss_pct) > 50 ? 'warning' : ''}`;
+                
+                document.getElementById('drawdown').textContent = `${parseFloat(risk.drawdown_pct).toFixed(1)}%`;
+                const drawdownBar = document.getElementById('drawdown-bar');
+                drawdownBar.style.width = `${Math.min(parseFloat(risk.drawdown_pct), 100)}%`;
+                
+                const cbEl = document.getElementById('circuit-breaker');
+                cbEl.textContent = `● ${risk.circuit_breaker_state.charAt(0).toUpperCase() + risk.circuit_breaker_state.slice(1)}`;
+                cbEl.className = `metric-value ${risk.circuit_breaker_state === 'closed' ? 'status-positive' : 'status-negative'}`;
+                
+                // Update system status
+                const statusEl = document.getElementById('system-status');
+                if (risk.kill_switch_active) {
+                    statusEl.textContent = '● HALTED';
+                    statusEl.className = 'status-value status-negative';
+                } else if (risk.circuit_breaker_state !== 'closed') {
+                    statusEl.textContent = '● Circuit Open';
+                    statusEl.className = 'status-value status-warning';
+                } else {
+                    statusEl.textContent = '● Normal';
+                    statusEl.className = 'status-value status-positive';
+                }
+                
+                // Update limits modal
+                document.getElementById('limit-order').value = risk.limits.max_order_notional;
+                document.getElementById('limit-position').value = risk.limits.max_position_notional;
+                document.getElementById('limit-daily-loss').value = risk.limits.max_daily_loss;
+                document.getElementById('limit-exposure').value = risk.limits.max_total_exposure;
+                
+            } catch (error) {
+                console.error('Failed to load risk status:', error);
+            }
+        }
+        
+        async function loadServices() {
+            const container = document.getElementById('services-container');
+            
+            try {
+                const services = await apiGet('/api/services');
+                
+                if (services.length === 0) {
+                    container.innerHTML = '<div class="error">No services to display</div>';
+                    return;
+                }
+                
+                container.innerHTML = services.map(s => `
+                    <div class="service-item">
+                        <div>
+                            <span class="service-name">${s.service.charAt(0).toUpperCase() + s.service.slice(1)}</span>
+                            ${s.response_time_ms ? `<span style="color: var(--text-secondary); font-size: 0.8rem;"> (${s.response_time_ms.toFixed(0)}ms)</span>` : ''}
+                        </div>
+                        <span class="service-status ${s.status === 'operational' ? 'operational' : s.status.includes('degraded') ? 'degraded' : 'outage'}">
+                            ${s.status}
+                        </span>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                container.innerHTML = `<div class="error">Failed to load services: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadActivity() {
+            const container = document.getElementById('activity-feed');
+            
+            try {
+                const activity = await apiGet('/api/activity?limit=20');
+                
+                if (activity.length === 0) {
+                    container.innerHTML = `
+                        <div class="feed-item">
+                            <div class="feed-time">--</div>
+                            <div class="feed-message">No recent activity</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = activity.reverse().map(a => {
+                    const time = new Date(a.time).toLocaleTimeString('en-US', { hour12: false });
+                    return `
+                        <div class="feed-item">
+                            <div class="feed-time">${time}</div>
+                            <div class="feed-message ${a.level === 'critical' ? 'critical' : a.level === 'warning' ? 'warning' : ''}">${a.message}</div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                container.innerHTML = `<div class="error">Failed to load activity: ${error.message}</div>`;
+            }
+        }
+        
+        function addActivityItem(item) {
+            const container = document.getElementById('activity-feed');
+            const time = new Date(item.time).toLocaleTimeString('en-US', { hour12: false });
+            
+            const itemEl = document.createElement('div');
+            itemEl.className = 'feed-item';
+            itemEl.innerHTML = `
+                <div class="feed-time">${time}</div>
+                <div class="feed-message ${item.level === 'critical' ? 'critical' : item.level === 'warning' ? 'warning' : ''}">${item.message}</div>
+            `;
+            
+            container.insertBefore(itemEl, container.firstChild);
+            
+            // Keep only last 20 items
+            while (container.children.length > 20) {
+                container.removeChild(container.lastChild);
+            }
+        }
+        
+        // ============================================================================
+        // Actions
+        // ============================================================================
+        
+        function toggleKillSwitch() {
+            if (state.killSwitchActive) {
+                // Deactivate
+                deactivateKillSwitch();
+            } else {
+                // Show confirmation modal
+                document.getElementById('kill-switch-modal').classList.add('active');
+            }
+        }
+        
+        async function confirmKillSwitch() {
+            closeModal('kill-switch-modal');
+            
+            const closePositions = document.getElementById('close-positions-checkbox').checked;
+            
+            try {
+                await apiPost('/api/kill-switch', { 
+                    active: true, 
+                    reason: closePositions ? 'Dashboard kill switch with position close' : 'Dashboard kill switch' 
+                });
+                
+                if (closePositions) {
+                    await apiPost('/api/positions/close-all');
+                }
+                
+                state.killSwitchActive = true;
+                updateKillSwitchUI();
+                loadPositions();
+                loadOrders();
+                
+            } catch (error) {
+                alert(`Failed to activate kill switch: ${error.message}`);
+            }
+        }
+        
+        async function deactivateKillSwitch() {
+            try {
+                await apiPost('/api/kill-switch', { active: false });
+                state.killSwitchActive = false;
+                updateKillSwitchUI();
+            } catch (error) {
+                alert(`Failed to deactivate kill switch: ${error.message}`);
+            }
+        }
+        
+        function updateKillSwitchUI() {
+            const btn = document.getElementById('kill-switch');
+            btn.disabled = false;
+            
+            if (state.killSwitchActive) {
+                btn.classList.add('active');
+                btn.textContent = '⚠️ ACTIVE - Click to Deactivate';
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = '🛑 KILL SWITCH';
+            }
+        }
+        
+        function updateRiskDisplay(data) {
+            if (data.kill_switch_active !== undefined) {
+                state.killSwitchActive = data.kill_switch_active;
+                updateKillSwitchUI();
+            }
+            
+            if (data.circuit_breaker_state) {
+                const cbEl = document.getElementById('circuit-breaker');
+                cbEl.textContent = `● ${data.circuit_breaker_state.charAt(0).toUpperCase() + data.circuit_breaker_state.slice(1)}`;
+            }
+            
+            if (data.daily_pnl) {
+                const pnl = parseFloat(data.daily_pnl);
+                const pnlEl = document.getElementById('daily-pnl');
+                pnlEl.textContent = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
+                pnlEl.className = `status-value ${pnl >= 0 ? 'status-positive' : 'status-negative'}`;
+            }
+        }
+        
+        async function toggleDryRun() {
+            try {
+                const newState = !state.dryRunMode;
+                await apiPost(`/api/dry-run?enable=${newState}`);
+                state.dryRunMode = newState;
+                updateDryRunUI();
+            } catch (error) {
+                alert(`Failed to toggle dry-run: ${error.message}`);
+            }
+        }
+        
+        function updateDryRunUI() {
+            const btn = document.getElementById('dry-run-btn');
+            if (state.dryRunMode) {
+                btn.classList.add('active');
+                btn.textContent = '🧪 Dry Run: ON';
+                document.getElementById('risk-mode').textContent = 'Mode: Paper';
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = '🧪 Dry Run: OFF';
+                document.getElementById('risk-mode').textContent = 'Mode: LIVE';
+            }
+        }
+        
+        async function cancelOrder(orderId) {
+            try {
+                await apiDelete(`/api/orders/${orderId}`);
+                loadOrders();
+            } catch (error) {
+                alert(`Failed to cancel order: ${error.message}`);
+            }
+        }
+        
+        async function cancelAllOrders() {
+            if (!confirm('Cancel all open orders?')) return;
+            
+            try {
+                await apiDelete('/api/orders');
+                loadOrders();
+            } catch (error) {
+                alert(`Failed to cancel orders: ${error.message}`);
+            }
+        }
+        
+        async function closeAllPositions() {
+            if (!confirm('⚠️ Close ALL positions? This cannot be undone.')) return;
+            
+            try {
+                await apiPost('/api/positions/close-all');
+                loadPositions();
+            } catch (error) {
+                alert(`Failed to close positions: ${error.message}`);
+            }
+        }
+        
+        async function resetCircuitBreaker() {
+            try {
+                await apiPost('/api/circuit-breaker/reset');
+                loadRiskStatus();
+            } catch (error) {
+                alert(`Failed to reset circuit breaker: ${error.message}`);
+            }
+        }
+        
+        function refreshData() {
+            loadAccount();
+            loadPositions();
+            loadOrders();
+            loadRiskStatus();
+            loadServices();
+            loadActivity();
+        }
+        
+        // Modal helpers
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+        
+        function showLimitsModal() {
+            document.getElementById('limits-modal').classList.add('active');
+        }
+        
+        async function saveLimits() {
+            const limits = {
+                max_order_notional: document.getElementById('limit-order').value,
+                max_position_notional: document.getElementById('limit-position').value,
+                max_daily_loss: document.getElementById('limit-daily-loss').value,
+                max_total_exposure: document.getElementById('limit-exposure').value,
+            };
+            
+            try {
+                await apiPost('/api/limits', limits);
+                closeModal('limits-modal');
+                loadRiskStatus();
+            } catch (error) {
+                alert(`Failed to save limits: ${error.message}`);
+            }
+        }
+        
+        async function showKalshiModal() {
+            document.getElementById('kalshi-modal').classList.add('active');
+            const container = document.getElementById('kalshi-content');
+            
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Loading Kalshi data...</span>
+                </div>
+            `;
+            
+            try {
+                const balance = await apiGet('/api/kalshi/balance');
+                const positions = await apiGet('/api/kalshi/positions');
+                
+                container.innerHTML = `
+                    <div class="metric-grid" style="margin-bottom: 20px;">
+                        <div class="metric">
+                            <div class="metric-value">$${balance.balance}</div>
+                            <div class="metric-label">Balance</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">$${balance.available_balance}</div>
+                            <div class="metric-label">Available</div>
+                        </div>
+                    </div>
+                    <h4 style="margin-bottom: 10px;">Positions (${positions.length})</h4>
+                    ${positions.length === 0 ? 
+                        '<div style="color: var(--text-secondary);">No Kalshi positions</div>' :
+                        positions.map(p => `
+                            <div class="service-item">
+                                <span>${p.ticker || p.market_id}</span>
+                                <span>${p.position || p.count} contracts</span>
+                            </div>
+                        `).join('')
+                    }
+                `;
+            } catch (error) {
+                container.innerHTML = `<div class="error">Kalshi not available: ${error.message}</div>`;
+            }
+        }
+        
+        // ============================================================================
+        // Initialization
+        // ============================================================================
+        
+        async function init() {
+            console.log('Initializing dashboard...');
+            
+            // Connect WebSocket
+            connectWebSocket();
+            
+            // Load initial data
+            await Promise.all([
+                loadAccount(),
+                loadPositions(),
+                loadOrders(),
+                loadRiskStatus(),
+                loadServices(),
+                loadActivity(),
+            ]);
+            
+            // Enable buttons
+            document.getElementById('kill-switch').disabled = false;
+            
+            // Refresh every 10 seconds
+            setInterval(() => {
+                loadPositions();
+                loadOrders();
+                loadRiskStatus();
+            }, 10000);
+            
+            // Refresh services every 60 seconds
+            setInterval(loadServices, 60000);
+        }
+        
+        // Start on load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

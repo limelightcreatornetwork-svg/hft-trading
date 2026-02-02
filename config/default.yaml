@@ -1,0 +1,79 @@
+# HFT Trading System Configuration
+# Copy to config/local.yaml and customize
+
+# Environment
+environment: paper  # paper or live
+debug: false
+
+# Alpaca Configuration
+alpaca:
+  data_feed: iex  # iex (free) or sip (paid)
+  # API keys loaded from environment:
+  # ALPACA_PAPER_API_KEY, ALPACA_PAPER_API_SECRET (paper)
+  # ALPACA_API_KEY, ALPACA_API_SECRET (live)
+
+# Kalshi Configuration
+kalshi:
+  environment: demo  # demo or production
+  # Credentials loaded from environment:
+  # KALSHI_DEMO_EMAIL, KALSHI_DEMO_PASSWORD (demo)
+  # KALSHI_EMAIL, KALSHI_PASSWORD (production)
+
+# Risk Limits
+risk:
+  # Order limits
+  max_order_notional: 10000  # Max single order value
+  max_order_shares: 1000     # Max shares per order
+  
+  # Position limits
+  max_position_notional: 50000  # Max position value per symbol
+  max_position_shares: 5000     # Max shares per symbol
+  max_total_exposure: 200000    # Max total portfolio exposure
+  max_concentration_pct: 0.25   # Max % in single position
+  
+  # Loss limits
+  max_daily_loss: 5000       # Max daily loss
+  max_weekly_loss: 15000     # Max weekly loss
+  max_drawdown_pct: 0.10     # Max drawdown from peak
+  
+  # Spend limits
+  daily_spend_limit: 100000  # Max daily buys
+  weekly_spend_limit: 300000 # Max weekly buys
+  monthly_spend_limit: 1000000  # Max monthly buys
+  
+  # Human approval thresholds
+  approval_notional_threshold: 25000  # Require approval above this
+  approval_loss_threshold: 2000       # Require approval if losing this much
+  
+  # Circuit breaker
+  max_reject_rate: 0.30      # Trip if 30% rejects
+  max_slippage_pct: 0.02     # Trip if 2% avg slippage
+  reject_window_size: 20     # Window for calculations
+  
+  # Symbol restrictions (empty = no restrictions)
+  allowed_symbols: []        # Whitelist (empty = disabled)
+  blocked_symbols: []        # Blocklist
+
+# Streaming
+streaming:
+  reconnect_delay_initial: 1    # Initial reconnect delay (seconds)
+  reconnect_delay_max: 60       # Max reconnect delay
+  heartbeat_interval: 30        # Heartbeat check interval
+
+# Logging
+logging:
+  level: INFO
+  journal_dir: ~/.hft/journals
+  max_memory_entries: 10000
+
+# Rate Limiting
+rate_limits:
+  alpaca_requests_per_minute: 200
+  kalshi_requests_per_second: 10
+
+# Trading Hours (ET)
+trading_hours:
+  pre_market_start: "04:00"
+  market_open: "09:30"
+  market_close: "16:00"
+  after_hours_end: "20:00"
