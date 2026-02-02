@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { checkIntent } from '@/lib/risk-engine';
 import { submitOrder } from '@/lib/alpaca';
+import { withAuth } from '@/lib/api-auth';
+import { logAudit } from '@/lib/audit-log';
 
 // Disable caching - always fetch fresh data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '50');
@@ -42,9 +44,9 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { symbol, side, quantity, orderType, limitPrice, strategy, autoExecute = true } = body;
@@ -173,9 +175,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Failed to create intent' 
+        error: error instanceof Error ? error.message : 'Failed to create intent'
       },
       { status: 500 }
     );
   }
-}
+});

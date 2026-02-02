@@ -1,23 +1,24 @@
 /**
  * GET /api/positions/managed - Get managed positions with TP/SL/confidence
- * 
+ *
  * Query params:
  * - status: 'active' | 'closed' | 'all' (default: 'active')
  * - limit: number (default: 50)
- * 
+ *
  * POST /api/positions/managed - Close a position manually
  * Body: { positionId: string, closePrice: number }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getActiveManagedPositions, 
+import {
+  getActiveManagedPositions,
   getPositionHistory,
   manualClosePosition,
   getTradingStats,
 } from '@/lib/trade-manager';
+import { withAuth } from '@/lib/api-auth';
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'active';
@@ -56,9 +57,9 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { positionId, closePrice } = body;
@@ -91,4 +92,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
