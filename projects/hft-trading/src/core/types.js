@@ -159,14 +159,16 @@ export const TimeInForce = {
 };
 
 /**
- * Create a unique correlation ID
+ * Create a unique correlation ID for tracing order lifecycle
+ * @returns {string} Unique correlation ID in format corr_<timestamp>_<random>
  */
 export function createCorrelationId() {
   return `corr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**
- * Create a unique event ID
+ * Create a unique event ID for audit logging
+ * @returns {string} Unique event ID in format evt_<timestamp>_<random>
  */
 export function createEventId() {
   return `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

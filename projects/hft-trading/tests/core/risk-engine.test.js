@@ -350,7 +350,7 @@ describe('RiskEngine', () => {
         client_intent_id: 'test-015',
         symbol: 'AAPL',
         side: 'sell',
-        qty: 50, // Reducing position
+        qty: 30, // Reducing position - keep under $5000 notional limit (30 * 155 = $4650)
         limit_price: 155,
       };
 
@@ -419,7 +419,7 @@ describe('RiskEngine', () => {
         client_intent_id: 'sizing-001',
         symbol: 'AAPL',
         side: 'buy',
-        qty: 100,
+        qty: 30, // Keep under $5000 notional limit (30 * 150 = $4500)
         limit_price: 150,
       };
 
@@ -445,7 +445,7 @@ describe('RiskEngine', () => {
         client_intent_id: 'sizing-002',
         symbol: 'NVDA',
         side: 'buy',
-        qty: 50,
+        qty: 5, // Keep under $5000 notional limit (5 * 800 = $4000)
         limit_price: 800,
       };
 

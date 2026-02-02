@@ -285,7 +285,17 @@ export class RiskEngine {
     const deltaNotional = intent.side === 'buy' ? intent.qty * price : -intent.qty * price;
     const newNotional = currentNotional + deltaNotional;
     
-    const passed = Math.abs(newNotional) <= this.limits.maxPositionNotional;
+    // Check if this order reduces the position size
+    const isReducingPosition = 
+      (currentNotional > 0 && intent.side === 'sell') ||
+      (currentNotional < 0 && intent.side === 'buy');
+    
+    // Always allow reducing positions, even if currently over limit
+    // Only block if the new position would be larger than current AND exceed limit
+    const passed = isReducingPosition 
+      ? Math.abs(newNotional) <= Math.abs(currentNotional) || Math.abs(newNotional) <= this.limits.maxPositionNotional
+      : Math.abs(newNotional) <= this.limits.maxPositionNotional;
+    
     return {
       name: 'max_position',
       passed,
@@ -295,11 +305,13 @@ export class RiskEngine {
         delta: deltaNotional,
         projected: newNotional,
         limit: this.limits.maxPositionNotional,
+        isReducingPosition,
       },
     };
   }
 
   _checkGrossExposure(intent, quote) {
+    const symbol = intent.symbol?.toUpperCase();
     const price = intent.limit_price || quote?.mid || quote?.last || 0;
     const orderNotional = intent.qty * price;
     
@@ -308,7 +320,22 @@ export class RiskEngine {
       totalGross += Math.abs(notional);
     }
     
-    const projectedGross = totalGross + orderNotional;
+    // Check if this order reduces an existing position
+    const currentPositionNotional = this.positionNotionals.get(symbol) || 0;
+    const isReducingPosition = 
+      (currentPositionNotional > 0 && intent.side === 'sell') ||
+      (currentPositionNotional < 0 && intent.side === 'buy');
+    
+    let projectedGross;
+    if (isReducingPosition) {
+      // Reducing position: gross exposure decreases or stays same
+      const reducedNotional = Math.min(Math.abs(currentPositionNotional), orderNotional);
+      projectedGross = totalGross - reducedNotional + Math.max(0, orderNotional - Math.abs(currentPositionNotional));
+    } else {
+      // Adding to position or opening new: gross exposure increases
+      projectedGross = totalGross + orderNotional;
+    }
+    
     const passed = projectedGross <= this.limits.maxGrossExposure;
     
     return {
@@ -319,6 +346,7 @@ export class RiskEngine {
         current: totalGross,
         projected: projectedGross,
         limit: this.limits.maxGrossExposure,
+        isReducingPosition,
       },
     };
   }
@@ -333,7 +361,14 @@ export class RiskEngine {
     }
     
     const projectedNet = netExposure + orderNotional;
-    const passed = Math.abs(projectedNet) <= this.limits.maxNetExposure;
+    
+    // Check if this order reduces net exposure
+    const isReducingExposure = Math.abs(projectedNet) < Math.abs(netExposure);
+    
+    // Allow reducing exposure even if currently over limit
+    const passed = isReducingExposure 
+      ? true
+      : Math.abs(projectedNet) <= this.limits.maxNetExposure;
     
     return {
       name: 'net_exposure',
@@ -343,6 +378,7 @@ export class RiskEngine {
         current: netExposure,
         projected: projectedNet,
         limit: this.limits.maxNetExposure,
+        isReducingExposure,
       },
     };
   }
