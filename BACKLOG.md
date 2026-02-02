@@ -27,7 +27,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 
 ### 3. Missing Test Coverage
 - **Affected files**: 
-  - `src/lib/trade-manager.ts` (0 tests) - needs tests
+  - `src/lib/trade-manager.ts` ✅ (21 tests)
   - `src/lib/confidence.ts` ✅ (15 tests)
   - `src/lib/risk-engine.ts` ✅ (15 tests)
   - `src/lib/env.ts` ✅ (19 tests)
@@ -36,7 +36,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
   - `src/lib/alpaca.ts` (0 tests) - needs tests
   - All API routes (0 tests) - needs integration tests
 - **Impact**: Regressions can go undetected
-- **Status**: 🔄 IN PROGRESS (139/200+ target)
+- **Status**: 🔄 IN PROGRESS (160/200+ target)
 
 ### 4. No API Authentication
 - **Files**: All `src/app/api/*/route.ts`
@@ -117,6 +117,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Rate limiting | 5 | 2026-02-02 |
 | Comprehensive README documentation | 6 | 2026-02-02 |
 | API authentication + rate limiting for critical endpoints | 2 | 2026-02-02 |
+| Test coverage: trade-manager module (21 tests) | 3 | 2026-02-02 |
 
 ---
 
