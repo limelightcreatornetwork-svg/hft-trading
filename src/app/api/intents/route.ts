@@ -3,6 +3,10 @@ import { prisma } from '@/lib/db';
 import { checkIntent } from '@/lib/risk-engine';
 import { submitOrder } from '@/lib/alpaca';
 
+// Disable caching - always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

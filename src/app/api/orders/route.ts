@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOrders, submitOrder, cancelOrder } from '@/lib/alpaca';
 import { checkIntent } from '@/lib/risk-engine';
 
+// Disable caching - always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

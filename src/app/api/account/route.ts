@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getAccount } from '@/lib/alpaca';
 
+// Disable caching - always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const account = await getAccount();
