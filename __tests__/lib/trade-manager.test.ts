@@ -62,7 +62,7 @@ jest.mock('../../src/lib/confidence', () => ({
 }));
 
 import { prisma } from '../../src/lib/db';
-import { calculateConfidence, getSuggestedLevels } from '../../src/lib/confidence';
+import { calculateConfidence } from '../../src/lib/confidence';
 import {
   createManagedPosition,
   CreateManagedPositionResult,

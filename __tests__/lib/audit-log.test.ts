@@ -388,25 +388,6 @@ describe('Audit Logging System', () => {
 
 describe('AuditAction types', () => {
   it('should have all expected action types', () => {
-    const actions = [
-      'ORDER_SUBMITTED',
-      'ORDER_CANCELLED',
-      'ORDER_FILLED',
-      'ORDER_REJECTED',
-      'INTENT_CREATED',
-      'INTENT_APPROVED',
-      'INTENT_REJECTED',
-      'KILL_SWITCH_ACTIVATED',
-      'KILL_SWITCH_DEACTIVATED',
-      'POSITION_OPENED',
-      'POSITION_CLOSED',
-      'RISK_CHECK_PASSED',
-      'RISK_CHECK_FAILED',
-      'AUTH_SUCCESS',
-      'AUTH_FAILURE',
-      'CONFIG_CHANGED',
-    ];
-
     // All actions should be supported by the audit helper object
     expect(audit.orderSubmitted).toBeDefined();
     expect(audit.orderCancelled).toBeDefined();

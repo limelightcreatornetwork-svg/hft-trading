@@ -112,6 +112,8 @@ describe('Risk Engine', () => {
     });
 
     it('should handle error and return conservative settings', async () => {
+      // Dynamic require to access mock within test
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getRegimeDetector } = require('../../src/lib/regime');
       getRegimeDetector.mockReturnValueOnce({
         detect: jest.fn().mockRejectedValue(new Error('API error')),

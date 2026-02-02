@@ -32,6 +32,8 @@ describe('API Authentication', () => {
       jest.doMock('../../src/lib/env', () => ({
         getOptionalEnv: jest.fn(() => ''),
       }));
+      // Dynamic require needed after jest.resetModules() to pick up new mock values
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { isAuthEnabled: isAuthEnabledNew } = require('../../src/lib/api-auth');
       expect(isAuthEnabledNew()).toBe(false);
     });
