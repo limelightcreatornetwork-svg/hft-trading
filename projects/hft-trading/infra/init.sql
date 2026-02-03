@@ -106,16 +106,64 @@ CREATE TABLE IF NOT EXISTS event_log (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Indexes for performance
+-- =====================================================
+-- INDEXES FOR PERFORMANCE
+-- Optimized for HFT query patterns
+-- =====================================================
+
+-- Intent table indexes
 CREATE INDEX IF NOT EXISTS idx_intents_client_id ON intents(client_intent_id);
 CREATE INDEX IF NOT EXISTS idx_intents_symbol ON intents(symbol);
 CREATE INDEX IF NOT EXISTS idx_intents_created ON intents(created_at);
+CREATE INDEX IF NOT EXISTS idx_intents_status ON intents(status);
+CREATE INDEX IF NOT EXISTS idx_intents_strategy ON intents(strategy);
+-- Composite: symbol + status for filtered queries
+CREATE INDEX IF NOT EXISTS idx_intents_symbol_status ON intents(symbol, status);
+-- Composite: symbol + created_at for recent intents by symbol
+CREATE INDEX IF NOT EXISTS idx_intents_symbol_created ON intents(symbol, created_at DESC);
+
+-- Risk decisions indexes
+CREATE INDEX IF NOT EXISTS idx_risk_decisions_intent_id ON risk_decisions(intent_id);
+CREATE INDEX IF NOT EXISTS idx_risk_decisions_accepted ON risk_decisions(accepted);
+CREATE INDEX IF NOT EXISTS idx_risk_decisions_created ON risk_decisions(created_at);
+
+-- Order table indexes (critical for HFT)
 CREATE INDEX IF NOT EXISTS idx_orders_alpaca_id ON orders(alpaca_order_id);
 CREATE INDEX IF NOT EXISTS idx_orders_symbol ON orders(symbol);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_intent_id ON orders(intent_id);
+CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
+CREATE INDEX IF NOT EXISTS idx_orders_side ON orders(side);
+-- Composite: symbol + status for active orders lookup
+CREATE INDEX IF NOT EXISTS idx_orders_symbol_status ON orders(symbol, status);
+-- Composite: symbol + created_at for recent orders by symbol
+CREATE INDEX IF NOT EXISTS idx_orders_symbol_created ON orders(symbol, created_at DESC);
+-- Composite: status + created_at for recent active orders
+CREATE INDEX IF NOT EXISTS idx_orders_status_created ON orders(status, created_at DESC);
+
+-- Fill table indexes
 CREATE INDEX IF NOT EXISTS idx_fills_order_id ON fills(order_id);
+CREATE INDEX IF NOT EXISTS idx_fills_symbol ON fills(symbol);
+CREATE INDEX IF NOT EXISTS idx_fills_filled_at ON fills(filled_at);
+-- Composite: symbol + filled_at for recent fills by symbol
+CREATE INDEX IF NOT EXISTS idx_fills_symbol_filled ON fills(symbol, filled_at DESC);
+
+-- Position snapshots indexes
+CREATE INDEX IF NOT EXISTS idx_position_snapshots_symbol ON position_snapshots(symbol);
+CREATE INDEX IF NOT EXISTS idx_position_snapshots_at ON position_snapshots(snapshot_at);
+-- Composite: symbol + time for historical lookups
+CREATE INDEX IF NOT EXISTS idx_position_snapshots_symbol_time ON position_snapshots(symbol, snapshot_at DESC);
+
+-- Account snapshots indexes
+CREATE INDEX IF NOT EXISTS idx_account_snapshots_at ON account_snapshots(snapshot_at);
+
+-- Event log indexes (audit trail)
 CREATE INDEX IF NOT EXISTS idx_event_log_type ON event_log(event_type);
 CREATE INDEX IF NOT EXISTS idx_event_log_created ON event_log(created_at);
+-- Composite: type + created_at for filtered audit queries
+CREATE INDEX IF NOT EXISTS idx_event_log_type_created ON event_log(event_type, created_at DESC);
+-- Partial index: only recent events (last 7 days) for fast queries
+-- CREATE INDEX IF NOT EXISTS idx_event_log_recent ON event_log(created_at DESC) WHERE created_at > NOW() - INTERVAL '7 days';
 
 -- Insert default risk config
 INSERT INTO risk_config (key, value, description) VALUES
