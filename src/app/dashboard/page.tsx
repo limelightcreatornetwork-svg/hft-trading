@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,15 +12,17 @@ import { TradeHistory } from "@/components/dashboard/TradeHistory";
 import { PositionCardsGrid } from "@/components/dashboard/PositionCard";
 import { QuickTradePanel } from "@/components/dashboard/QuickTradePanel";
 import { CollapsiblePanel } from "@/components/dashboard/CollapsiblePanel";
-import { 
-  RefreshCw, 
-  TrendingUp, 
-  History, 
+import { RealTimeConnectionStatus, useRealTimePriceContext } from "@/components/providers/RealTimePriceProvider";
+import {
+  RefreshCw,
+  TrendingUp,
+  History,
   Wallet,
   Activity,
   AlertTriangle,
   Menu,
-  X
+  X,
+  Wifi
 } from 'lucide-react';
 
 interface AccountData {
@@ -68,8 +70,48 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<TabType>('positions');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  
+
+  // Real-time price context
+  const { isConnected, subscribe, getPrice, getPriceHistory } = useRealTimePriceContext();
+
   const watchlistSymbols = ['SPY', 'QQQ', 'AAPL'];
+
+  // Subscribe to position symbols for real-time updates
+  useEffect(() => {
+    if (isConnected && positions.length > 0) {
+      const symbols = positions.map(p => p.symbol);
+      subscribe([...symbols, ...watchlistSymbols]);
+    }
+  }, [isConnected, positions, subscribe, watchlistSymbols]);
+
+  // Merge real-time prices with positions
+  const positionsWithRealTimePrices = useMemo(() => {
+    return positions.map(position => {
+      const realTimePrice = getPrice(position.symbol);
+      const priceHistory = getPriceHistory(position.symbol);
+
+      if (realTimePrice) {
+        const currentPrice = realTimePrice.price;
+        const costBasis = position.avgEntryPrice * position.quantity;
+        const marketValue = currentPrice * position.quantity;
+        const unrealizedPL = position.side === 'long'
+          ? marketValue - costBasis
+          : costBasis - marketValue;
+        const unrealizedPLPercent = costBasis > 0 ? (unrealizedPL / costBasis) * 100 : 0;
+
+        return {
+          ...position,
+          currentPrice,
+          marketValue,
+          unrealizedPL,
+          unrealizedPLPercent,
+          priceHistory: priceHistory.length > 1 ? priceHistory : undefined,
+        };
+      }
+
+      return position;
+    });
+  }, [positions, getPrice, getPriceHistory]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -265,6 +307,10 @@ export default function DashboardPage() {
               </Badge>
             </div>
             <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/50">
+                <Wifi className={`h-4 w-4 ${isConnected ? 'text-green-500' : 'text-muted-foreground'}`} />
+                <RealTimeConnectionStatus showLabel={true} />
+              </div>
               {lastUpdate && (
                 <span className="text-sm text-muted-foreground">
                   Updated {lastUpdate.toLocaleTimeString()}
@@ -353,7 +399,7 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <PositionCardsGrid
-                    positions={positions}
+                    positions={positionsWithRealTimePrices}
                     onClose={handleClosePosition}
                     onAdd={handleAddPosition}
                     onReduce={handleReducePosition}
