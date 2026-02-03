@@ -339,17 +339,32 @@ export function calculatePremium(contract: OptionContract, quantity: number): nu
 }
 
 /**
- * Get expiration dates for the next N weeks
+ * Get expiration dates for the next N weeks (Fridays in UTC)
  */
 export function getExpirationDates(weeks: number = 8): string[] {
   const dates: string[] = [];
   const today = new Date();
   
+  // Use UTC to avoid timezone issues
+  const utcDay = today.getUTCDay();
+  
+  // Calculate days until next Friday (0=Sun, 5=Fri)
+  // If today is Friday (5), go to next Friday (7 days)
+  // If today is Sat (6), go to Friday in 6 days
+  // If today is Sun (0), go to Friday in 5 days
+  let daysUntilFriday = (5 - utcDay + 7) % 7;
+  if (daysUntilFriday === 0) {
+    daysUntilFriday = 7; // If today is Friday, go to next Friday
+  }
+  
   for (let i = 0; i < weeks; i++) {
-    // Find next Friday
     const date = new Date(today);
-    date.setDate(today.getDate() + ((5 - today.getDay() + 7) % 7) + (i * 7));
-    dates.push(date.toISOString().split('T')[0]);
+    date.setUTCDate(today.getUTCDate() + daysUntilFriday + (i * 7));
+    // Format as YYYY-MM-DD using UTC
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    dates.push(`${year}-${month}-${day}`);
   }
   
   return dates;

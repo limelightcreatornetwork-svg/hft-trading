@@ -36,7 +36,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
   - `src/lib/alpaca.ts` ✅ (27 tests)
   - All API routes (0 tests) - needs integration tests
 - **Impact**: Regressions can go undetected
-- **Status**: ✅ COMPLETE (241 tests across 12 suites)
+- **Status**: ✅ COMPLETE (445 tests across 20 suites)
 
 ### 4. No API Authentication
 - **Files**: All `src/app/api/*/route.ts`
@@ -147,6 +147,55 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Fix withAuth type for Next.js 16 compat | 30 | 2026-02-02 |
 | Portfolio Optimization: library + API + UI | 31 | 2026-02-02 |
 | Comprehensive Risk Management System | 32 | 2026-02-02 |
+| OMS State Machine (HFT-003) | 33 | 2026-02-02 |
+| Fix alpaca-options UTC date generation | 33 | 2026-02-02 |
+
+---
+
+## ✅ OMS State Machine (Cycle 33 / HFT-003)
+
+Added a formal Order Management System state machine for order lifecycle tracking:
+
+### Module (`src/lib/oms-state-machine.ts`)
+- **Order States**
+  - CREATED → PENDING → VALIDATING → SUBMITTING → SUBMITTED → [PARTIAL|FILLED]
+  - Terminal states: FILLED, CANCELLED, REJECTED, EXPIRED, FAILED
+- **State Machine Features**
+  - Validated state transitions
+  - Transition history tracking
+  - Event-driven architecture (QUEUE, VALIDATE, SUBMIT, ACKNOWLEDGE, FILL, CANCEL, REJECT, EXPIRE, FAIL)
+- **Fill Tracking**
+  - Partial and full fill recording
+  - Average fill price calculation
+  - Auto-transition on fill completion
+- **Order Management**
+  - Lookup by internal ID, client ID, or broker ID
+  - Filter by state, symbol, active/completed
+  - Statistics (fill rate, counts by state)
+  - Pruning of old completed orders
+- **Callbacks**
+  - onStateChange callback for state transitions
+  - onFill callback for fill events
+- **Configuration**
+  - validateTransitions: enforce valid state changes
+  - trackHistory: maintain transition log
+  - maxHistoryLength: limit history size
+
+### Tests (`__tests__/lib/oms-state-machine.test.ts`)
+- 60 comprehensive tests covering:
+  - State validation helpers (isValidTransition, isTerminalState, isActiveState)
+  - Order creation with all parameters
+  - Full lifecycle state transitions
+  - Fill recording and average price calculation
+  - Cancel and reject workflows
+  - Order lookup by multiple identifiers
+  - Filtering and statistics
+  - Pruning completed orders
+  - State change and fill callbacks
+  - Edge cases (zero quantity, validation bypass, multiple partial fills)
+
+### Bug Fix
+- Fixed `getExpirationDates()` to use UTC consistently, preventing Friday detection failures in tests
 
 ---
 
@@ -284,7 +333,7 @@ Added a complete risk management system with 5 integrated components:
 ## Notes
 
 ### Code Quality Metrics (Updated Cycle 30)
-- **Test Coverage**: 296 tests across 14 test suites
+- **Test Coverage**: 445 tests across 20 test suites
 - **Lint Status**: 2 warnings (reserved state for future feature), 0 errors
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on critical endpoints
