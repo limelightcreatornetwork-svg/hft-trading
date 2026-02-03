@@ -298,10 +298,21 @@ export async function getActiveRules(symbol?: string): Promise<AutomationRuleWit
   const where: { status: string; symbol?: string } = { status: 'active' };
   if (symbol) where.symbol = symbol.toUpperCase();
   
-  const rules = await prisma.automationRule.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-  });
+  let rules;
+  try {
+    rules = await prisma.automationRule.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+  } catch (error) {
+    // Handle case where table doesn't exist yet
+    const errorMessage = error instanceof Error ? error.message : '';
+    if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
+      console.warn('AutomationRule table does not exist, returning empty array');
+      return [];
+    }
+    throw error;
+  }
 
   // Fetch current prices for all symbols
   const symbols = [...new Set(rules.map(r => r.symbol))];
@@ -387,16 +398,27 @@ export async function monitorAndExecute(): Promise<MonitoringResult> {
   };
 
   // Get all active and enabled rules
-  const rules = await prisma.automationRule.findMany({
-    where: { 
-      status: 'active', 
-      enabled: true,
-      OR: [
-        { expiresAt: null },
-        { expiresAt: { gt: new Date() } },
-      ],
-    },
-  });
+  let rules;
+  try {
+    rules = await prisma.automationRule.findMany({
+      where: { 
+        status: 'active', 
+        enabled: true,
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
+      },
+    });
+  } catch (error) {
+    // Handle case where table doesn't exist yet
+    const errorMessage = error instanceof Error ? error.message : '';
+    if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
+      console.warn('AutomationRule table does not exist, returning empty result');
+      return result;
+    }
+    throw error;
+  }
 
   result.rulesChecked = rules.length;
 
@@ -705,10 +727,21 @@ export async function getRuleExecutions(ruleId: string): Promise<Array<{
  * Get all rules (including triggered/cancelled)
  */
 export async function getAllRules(limit: number = 100): Promise<AutomationRuleWithStatus[]> {
-  const rules = await prisma.automationRule.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-  });
+  let rules;
+  try {
+    rules = await prisma.automationRule.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  } catch (error) {
+    // Handle case where table doesn't exist yet
+    const errorMessage = error instanceof Error ? error.message : '';
+    if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
+      console.warn('AutomationRule table does not exist, returning empty array');
+      return [];
+    }
+    throw error;
+  }
 
   return rules.map(rule => ({
     ...rule,
