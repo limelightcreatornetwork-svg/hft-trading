@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,89 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
+
+// Sparkline component for mini price charts
+interface SparklineProps {
+  data: number[];
+  width?: number;
+  height?: number;
+  positive?: boolean;
+}
+
+function Sparkline({ data, width = 80, height = 32, positive = true }: SparklineProps) {
+  const { pathD, areaD, lastPoint } = useMemo(() => {
+    if (!data || data.length < 2) {
+      return { pathD: '', areaD: '', lastPoint: null };
+    }
+    
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min || 1;
+    const padding = 2;
+    
+    const points = data.map((value, i) => {
+      const x = padding + (i / (data.length - 1)) * (width - padding * 2);
+      const y = padding + (height - padding * 2) - ((value - min) / range) * (height - padding * 2);
+      return { x, y };
+    });
+    
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+    const areaPath = `${linePath} L ${points[points.length - 1].x},${height - padding} L ${padding},${height - padding} Z`;
+    
+    return {
+      pathD: linePath,
+      areaD: areaPath,
+      lastPoint: points[points.length - 1],
+    };
+  }, [data, width, height]);
+  
+  if (!pathD) {
+    return <div className="w-20 h-8 bg-muted/50 rounded animate-pulse" />;
+  }
+  
+  const color = positive ? '#22c55e' : '#ef4444';
+  const fillColor = positive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+  
+  return (
+    <svg width={width} height={height} className="overflow-visible">
+      <path d={areaD} fill={fillColor} />
+      <path
+        d={pathD}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {lastPoint && (
+        <circle
+          cx={lastPoint.x}
+          cy={lastPoint.y}
+          r="2.5"
+          fill={color}
+        />
+      )}
+    </svg>
+  );
+}
+
+// Generate mock price history for demo (in production, fetch from API)
+function generatePriceHistory(entryPrice: number, currentPrice: number, days: number = 5): number[] {
+  const points = days * 4; // 4 points per day
+  const history: number[] = [];
+  
+  for (let i = 0; i < points; i++) {
+    const progress = i / (points - 1);
+    const basePrice = entryPrice + (currentPrice - entryPrice) * progress;
+    const noise = (Math.random() - 0.5) * entryPrice * 0.02; // 2% noise
+    history.push(basePrice + noise);
+  }
+  
+  // Ensure last point is exactly current price
+  history[history.length - 1] = currentPrice;
+  
+  return history;
+}
 
 interface Greeks {
   delta?: number;
@@ -37,6 +120,7 @@ interface Position {
   optionType?: 'call' | 'put';
   strike?: number;
   expiration?: string;
+  priceHistory?: number[];
 }
 
 interface PositionCardProps {
@@ -83,6 +167,14 @@ export function PositionCard({
     return value.toFixed(decimals);
   };
 
+  // Generate or use provided price history
+  const priceHistory = useMemo(() => {
+    if (position.priceHistory && position.priceHistory.length > 1) {
+      return position.priceHistory;
+    }
+    return generatePriceHistory(position.avgEntryPrice, position.currentPrice);
+  }, [position.priceHistory, position.avgEntryPrice, position.currentPrice]);
+
   if (compact) {
     return (
       <Card className={`transition-all hover:shadow-md ${
@@ -101,6 +193,7 @@ export function PositionCard({
                 </Badge>
               )}
             </div>
+            <Sparkline data={priceHistory} positive={isPositive} width={64} height={24} />
             <div className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
               {isPositive ? '+' : ''}{formatCurrency(position.unrealizedPL)}
             </div>
@@ -148,6 +241,11 @@ export function PositionCard({
               {isPositive ? '+' : ''}{position.unrealizedPLPercent.toFixed(2)}%
             </div>
           </div>
+        </div>
+
+        {/* Sparkline Chart */}
+        <div className="mb-3 flex justify-center py-2">
+          <Sparkline data={priceHistory} positive={isPositive} width={140} height={40} />
         </div>
 
         {/* Position Details */}

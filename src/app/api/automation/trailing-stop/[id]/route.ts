@@ -6,7 +6,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from '@/lib/api-auth';
 import {
   updateTrailingStop,
   cancelTrailingStop,
@@ -14,11 +13,11 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-type RouteParams = { params: Promise<{ id: string }> };
+type RouteContext = { params: Promise<{ id: string }> };
 
-export const PATCH = withAuth(async function PATCH(
+export async function PATCH(
   request: NextRequest,
-  context: RouteParams
+  context: RouteContext
 ) {
   try {
     const { id } = await context.params;
@@ -44,11 +43,11 @@ export const PATCH = withAuth(async function PATCH(
       { status: 500 }
     );
   }
-});
+}
 
-export const DELETE = withAuth(async function DELETE(
+export async function DELETE(
   request: NextRequest,
-  context: RouteParams
+  context: RouteContext
 ) {
   try {
     const { id } = await context.params;
@@ -66,4 +65,4 @@ export const DELETE = withAuth(async function DELETE(
       { status: 500 }
     );
   }
-});
+}

@@ -7,7 +7,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from '@/lib/api-auth';
 import {
   getScaledExitPlan,
   updateScaledExitPlan,
@@ -17,11 +16,11 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-type RouteParams = { params: Promise<{ id: string }> };
+type RouteContext = { params: Promise<{ id: string }> };
 
-export const GET = withAuth(async function GET(
+export async function GET(
   request: NextRequest,
-  context: RouteParams
+  context: RouteContext
 ) {
   try {
     const { id } = await context.params;
@@ -56,11 +55,11 @@ export const GET = withAuth(async function GET(
       { status: 500 }
     );
   }
-});
+}
 
-export const PATCH = withAuth(async function PATCH(
+export async function PATCH(
   request: NextRequest,
-  context: RouteParams
+  context: RouteContext
 ) {
   try {
     const { id } = await context.params;
@@ -85,11 +84,11 @@ export const PATCH = withAuth(async function PATCH(
       { status: 500 }
     );
   }
-});
+}
 
-export const DELETE = withAuth(async function DELETE(
+export async function DELETE(
   request: NextRequest,
-  context: RouteParams
+  context: RouteContext
 ) {
   try {
     const { id } = await context.params;
@@ -107,4 +106,4 @@ export const DELETE = withAuth(async function DELETE(
       { status: 500 }
     );
   }
-});
+}

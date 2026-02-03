@@ -8,6 +8,9 @@ const config = {
   testMatch: ['**/__tests__/**/*.test.ts'],
   collectCoverageFrom: [
     'src/lib/regime/**/*.ts',
+    'src/lib/automation.ts',
+    'src/lib/position-sizing.ts',
+    'src/lib/notifications.ts',
     '!src/lib/regime/index.ts',
   ],
   setupFilesAfterEnv: [],
