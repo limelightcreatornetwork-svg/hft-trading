@@ -146,6 +146,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Fix TypeScript error in intents route | 29 | 2026-02-02 |
 | Fix withAuth type for Next.js 16 compat | 30 | 2026-02-02 |
 | Portfolio Optimization: library + API + UI | 31 | 2026-02-02 |
+| Comprehensive Risk Management System | 32 | 2026-02-02 |
 
 ---
 
@@ -188,6 +189,95 @@ Added comprehensive portfolio analysis and optimization features:
 - Three-section dashboard: Overview, Position Sizing, Rebalancing
 - Holdings table with sector classification
 - Educational content for sizing methods
+
+---
+
+## ✅ Comprehensive Risk Management System (Cycle 32)
+
+Added a complete risk management system with 5 integrated components:
+
+### 1. Position Sizing (`src/risk/position_sizing.py`)
+- **Kelly Criterion Calculation**
+  - Full Kelly, Half Kelly, Quarter Kelly methods
+  - Volatility-adjusted sizing
+  - Fixed fractional sizing
+- **Features**
+  - Win rate and win/loss ratio analysis
+  - Automatic trade stats calculation from history
+  - Maximum position caps based on account size
+  - Risk-per-trade limits (2% default)
+  - Confidence scoring for sizing reliability
+
+### 2. Drawdown Protection (`src/risk/drawdown_protection.py`)
+- **5-Level Drawdown System**
+  - NORMAL: Full trading (< 3%)
+  - CAUTION: 50% position sizing (3-5%)
+  - WARNING: No new positions (5-8%)
+  - CRITICAL: Start liquidation (8-10%)
+  - EMERGENCY: Full liquidation (> 10%)
+- **Features**
+  - Daily/weekly/monthly loss limits (absolute and %)
+  - Automatic position liquidation (losers first)
+  - Recovery mode with cooldown period
+  - Peak equity tracking (high water mark)
+  - Level change callbacks for alerts
+
+### 3. Correlation-Based Limits (`src/risk/correlation_limits.py`)
+- **Sector Exposure Limits**
+  - 30% max per sector (configurable)
+  - 90+ stocks mapped to 11 sectors
+- **Correlation Group Limits**
+  - 25% max per correlated group
+  - Pre-defined groups: Magnificent 7, Semiconductors, FAANG, Banks, Oil Majors, Pharma, EV/Battery, Cloud, Streaming, Crypto-exposed, AI plays
+- **Features**
+  - Single stock position limits (15% default)
+  - Max positions per sector
+  - Diversification scoring (HHI-based)
+  - Custom sector/group mappings
+  - Automatic max position size calculation
+
+### 4. Real-Time P&L Tracking (`src/risk/pnl_tracker.py`)
+- **Alert Types**
+  - Daily profit target / loss limit
+  - Position-level profit/loss
+  - Losing/winning streaks
+  - P&L velocity (rapid changes)
+  - Drawdown warnings
+  - Recovery milestones
+  - New high alerts
+- **Features**
+  - Per-position P&L tracking
+  - Portfolio-level P&L summary
+  - Win rate and streak tracking
+  - Alert cooldowns (prevent spam)
+  - Callback system for notifications
+
+### 5. Integrated Risk Manager (`src/risk/integrated_risk_manager.py`)
+- **Unified Interface**
+  - Single entry point for all risk checks
+  - Combines all 4 components
+  - Trade evaluation with full decision report
+- **Features**
+  - Complete trade approval workflow
+  - Position sizing with automatic adjustments
+  - Status report with all metrics
+  - Kill switch control
+  - Alert aggregation
+  - Factory function for quick setup
+
+### Tests (`tests/test_risk_management.py`)
+- 25+ comprehensive tests covering all modules
+- Unit tests for each component
+- Integration tests for full workflow
+- Trading day simulation test
+
+### Configuration for $500 Account
+- Daily loss limit: $25 (5%)
+- Weekly loss limit: $75 (15%)
+- Max position: 10% of account
+- Max risk per trade: 2%
+- Kelly method: Quarter Kelly (conservative)
+- Emergency threshold: 10% drawdown
 
 ---
 
