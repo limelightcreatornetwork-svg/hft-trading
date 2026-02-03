@@ -1,0 +1,2248 @@
+openapi: 3.0.3
+info:
+  title: HFT Trading API
+  description: |
+    High-frequency trading API for portfolio management, automated trading, risk management, and market analysis.
+
+    ## Authentication
+
+    All endpoints (except `/api/health`, `/api/openapi`, and `/api-docs`) require authentication via API key. The key can be provided in two ways:
+
+    - **X-API-Key header**: `X-API-Key: your-api-key`
+    - **Authorization header**: `Authorization: Bearer your-api-key`
+
+    If `HFT_API_KEY` environment variable is not set, authentication is disabled (development mode).
+
+    ## Rate Limiting
+
+    - **Limit**: 60 requests per minute per client
+    - **Window**: 1 minute (sliding)
+    - **Response**: 429 Too Many Requests with `Retry-After` header
+
+    ## Error Codes
+
+    | Code | Description |
+    |------|-------------|
+    | 200  | Success |
+    | 400  | Bad Request - Invalid input |
+    | 401  | Unauthorized - Invalid or missing API key |
+    | 403  | Forbidden - Risk engine rejection |
+    | 429  | Rate Limit Exceeded |
+    | 500  | Internal Server Error |
+    | 503  | Service Unavailable - System unhealthy |
+  version: 0.1.0
+  contact:
+    name: HFT Trading Support
+  license:
+    name: Private
+
+servers:
+  - url: /
+    description: Current server
+
+tags:
+  - name: Health
+    description: System health monitoring
+  - name: Account
+    description: Account information and portfolio data
+  - name: Positions
+    description: Position management
+  - name: Orders
+    description: Order management
+  - name: Trading
+    description: Trade execution with confidence scoring
+  - name: Risk
+    description: Risk configuration and kill switch
+  - name: Regime
+    description: Market regime detection
+  - name: Automation
+    description: Automated trading rules
+  - name: Alerts
+    description: Price and P&L alerts
+  - name: Options
+    description: Options trading
+  - name: Intents
+    description: Trading intent tracking
+  - name: Documentation
+    description: API documentation
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+
+paths:
+  /api/openapi:
+    get:
+      tags:
+        - Documentation
+      summary: Get OpenAPI specification
+      description: Returns the OpenAPI 3.0 specification for this API as JSON.
+      operationId: getOpenAPISpec
+      security: []
+      responses:
+        '200':
+          description: OpenAPI specification
+          content:
+            application/json:
+              schema:
+                type: object
+                description: OpenAPI 3.0 specification document
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns system health status including database, Alpaca API, and memory checks.
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: System healthy or degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                timestamp: "2024-01-15T10:30:00Z"
+                uptime: 3600
+                version: "0.1.0"
+                environment: development
+                checks:
+                  - name: database
+                    status: pass
+                    message: Connected
+                    latencyMs: 15
+                  - name: alpaca_config
+                    status: pass
+                    message: Credentials configured
+                  - name: memory
+                    status: pass
+                    message: "128MB / 512MB (25%)"
+                  - name: environment
+                    status: pass
+                    message: All required variables set
+        '503':
+          description: System unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/account:
+    get:
+      tags:
+        - Account
+      summary: Get account details
+      description: Returns account information including equity, buying power, and daily P&L.
+      operationId: getAccount
+      responses:
+        '200':
+          description: Account details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+              example:
+                success: true
+                data:
+                  id: "abc123"
+                  status: ACTIVE
+                  currency: USD
+                  buyingPower: 50000.00
+                  cash: 25000.00
+                  portfolioValue: 75000.00
+                  equity: 75000.00
+                  lastEquity: 74500.00
+                  longMarketValue: 50000.00
+                  shortMarketValue: 0
+                  initialMargin: 25000.00
+                  maintenanceMargin: 15000.00
+                  daytradeCount: 2
+                  patternDayTrader: false
+                  dailyPL: 500.00
+                  dailyPLPercent: 0.67
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/positions:
+    get:
+      tags:
+        - Positions
+      summary: Get all positions
+      description: Returns all open positions with totals.
+      operationId: getPositions
+      responses:
+        '200':
+          description: Positions list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/positions/managed:
+    get:
+      tags:
+        - Positions
+      summary: Get managed positions
+      description: Returns managed positions with TP/SL levels and confidence scores.
+      operationId: getManagedPositions
+      parameters:
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [active, closed, all]
+            default: active
+        - name: limit
+          in: query
+          description: Maximum positions to return
+          schema:
+            type: integer
+            default: 50
+        - name: stats
+          in: query
+          description: Include trading statistics
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Managed positions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedPositionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Positions
+      summary: Close managed position
+      description: Manually close a managed position.
+      operationId: closeManagedPosition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - positionId
+                - closePrice
+              properties:
+                positionId:
+                  type: string
+                  description: Position ID to close
+                closePrice:
+                  type: number
+                  description: Current market price
+                  minimum: 0.01
+            example:
+              positionId: "pos_abc123"
+              closePrice: 155.50
+      responses:
+        '200':
+          description: Position closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/orders:
+    get:
+      tags:
+        - Orders
+      summary: Get orders
+      description: Fetch orders with optional status filter.
+      operationId: getOrders
+      parameters:
+        - name: status
+          in: query
+          description: Filter by order status
+          schema:
+            type: string
+            enum: [open, closed, all]
+            default: open
+      responses:
+        '200':
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdersResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Orders
+      summary: Submit order
+      description: Submit a new order with optional risk checks.
+      operationId: submitOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+            example:
+              symbol: AAPL
+              side: buy
+              quantity: 10
+              type: limit
+              limitPrice: 150.00
+              timeInForce: day
+      responses:
+        '200':
+          description: Order submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderSubmitResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Risk engine rejection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskRejectionResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Orders
+      summary: Cancel order
+      description: Cancel an open order by ID.
+      operationId: cancelOrder
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Order ID to cancel
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/trade:
+    get:
+      tags:
+        - Trading
+      summary: Preview confidence score
+      description: Calculate confidence score without placing a trade.
+      operationId: previewTrade
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Stock symbol
+          schema:
+            type: string
+          example: AAPL
+        - name: side
+          in: query
+          description: Trade side
+          schema:
+            type: string
+            enum: [buy, sell]
+            default: buy
+        - name: entryPrice
+          in: query
+          description: Entry price for calculations
+          schema:
+            type: number
+            default: 100
+      responses:
+        '200':
+          description: Confidence preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfidencePreviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Trading
+      summary: Place trade
+      description: Place a trade with confidence scoring. Trade may be skipped if confidence is too low.
+      operationId: placeTrade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TradeRequest'
+            example:
+              symbol: AAPL
+              side: buy
+              quantity: 10
+              entryPrice: 150.00
+              takeProfitPct: 5.0
+              stopLossPct: 2.0
+      responses:
+        '200':
+          description: Trade result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/risk:
+    get:
+      tags:
+        - Risk
+      summary: Get risk configuration
+      description: Returns current risk limits and headroom.
+      operationId: getRiskConfig
+      responses:
+        '200':
+          description: Risk configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskConfigResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - Risk
+      summary: Update risk configuration
+      description: Update risk limits. Changes are audit logged.
+      operationId: updateRiskConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskConfigUpdate'
+            example:
+              maxPositionSize: 1000
+              maxOrderSize: 100
+              maxDailyLoss: 5000.00
+              allowedSymbols: ["AAPL", "MSFT", "GOOGL"]
+              tradingEnabled: true
+      responses:
+        '200':
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskConfigUpdateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/kill-switch:
+    get:
+      tags:
+        - Risk
+      summary: Get kill switch status
+      description: Returns whether the kill switch is active.
+      operationId: getKillSwitch
+      responses:
+        '200':
+          description: Kill switch status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KillSwitchResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Risk
+      summary: Toggle kill switch
+      description: Activate or deactivate the kill switch. When activated, can optionally cancel all open orders.
+      operationId: toggleKillSwitch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [activate, deactivate]
+                cancelOrders:
+                  type: boolean
+                  default: true
+                  description: Cancel all open orders when activating
+            example:
+              action: activate
+              cancelOrders: true
+      responses:
+        '200':
+          description: Kill switch toggled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KillSwitchToggleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/regime:
+    get:
+      tags:
+        - Regime
+      summary: Detect market regime
+      description: Detect current market regime for a symbol.
+      operationId: getRegime
+      parameters:
+        - name: symbol
+          in: query
+          description: Stock symbol
+          schema:
+            type: string
+            default: SPY
+        - name: history
+          in: query
+          description: Return historical regime data
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          description: History limit
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Regime result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegimeResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Regime
+      summary: Batch regime detection
+      description: Detect market regime for multiple symbols.
+      operationId: batchRegimeDetection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbols:
+                  type: array
+                  items:
+                    type: string
+                  default: ["SPY"]
+            example:
+              symbols: ["SPY", "QQQ", "AAPL"]
+      responses:
+        '200':
+          description: Batch results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchRegimeResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/portfolio:
+    get:
+      tags:
+        - Account
+      summary: Get portfolio analytics
+      description: Returns advanced portfolio analytics including risk metrics, Kelly criterion, correlations, and rebalancing suggestions.
+      operationId: getPortfolioAnalytics
+      responses:
+        '200':
+          description: Portfolio analytics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioAnalyticsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/stats:
+    get:
+      tags:
+        - Account
+      summary: Get trading statistics
+      description: Returns trading statistics including win rate, P&L, and trade count.
+      operationId: getTradingStats
+      responses:
+        '200':
+          description: Trading statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/alerts:
+    get:
+      tags:
+        - Alerts
+      summary: Get alerts
+      description: Get pending and recent alerts.
+      operationId: getAlerts
+      parameters:
+        - name: pending
+          in: query
+          description: Only show pending alerts
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          description: Maximum alerts to return
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Alerts list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Alerts
+      summary: Dismiss alert
+      description: Dismiss an alert by ID.
+      operationId: dismissAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - alertId
+              properties:
+                alertId:
+                  type: string
+            example:
+              alertId: "alert_abc123"
+      responses:
+        '200':
+          description: Alert dismissed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/intents:
+    get:
+      tags:
+        - Intents
+      summary: Get intents
+      description: Get trading intents with risk checks and orders.
+      operationId: getIntents
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum intents to return
+          schema:
+            type: integer
+            default: 50
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Intents list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntentsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Intents
+      summary: Create intent
+      description: Create a trading intent with risk checks and optional auto-execution.
+      operationId: createIntent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntentRequest'
+            example:
+              symbol: AAPL
+              side: buy
+              quantity: 10
+              orderType: limit
+              limitPrice: 150.00
+              strategy: manual
+              autoExecute: true
+      responses:
+        '200':
+          description: Intent created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntentCreateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/automation/rules:
+    get:
+      tags:
+        - Automation
+      summary: Get automation rules
+      description: Get automation rules with optional symbol filter.
+      operationId: getAutomationRules
+      parameters:
+        - name: symbol
+          in: query
+          description: Filter by symbol
+          schema:
+            type: string
+        - name: all
+          in: query
+          description: Include non-active rules
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Rules list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRulesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Automation
+      summary: Create automation rule
+      description: Create an automation rule (stop loss, take profit, limit order, or OCO).
+      operationId: createAutomationRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationRuleRequest'
+            examples:
+              stopLoss:
+                summary: Stop Loss Rule
+                value:
+                  ruleType: STOP_LOSS
+                  symbol: AAPL
+                  entryPrice: 150.00
+                  stopLossAmount: 5
+                  isPercent: true
+                  positionSide: long
+              takeProfit:
+                summary: Take Profit Rule
+                value:
+                  ruleType: TAKE_PROFIT
+                  symbol: AAPL
+                  entryPrice: 150.00
+                  takeProfitAmount: 10
+                  isPercent: true
+                  positionSide: long
+              oco:
+                summary: OCO (One-Cancels-Other)
+                value:
+                  ruleType: OCO
+                  symbol: AAPL
+                  quantity: 10
+                  entryPrice: 150.00
+                  stopLossPrice: 142.50
+                  takeProfitPrice: 165.00
+      responses:
+        '200':
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRuleCreateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Automation
+      summary: Cancel automation rule
+      description: Cancel an automation rule by ID.
+      operationId: cancelAutomationRule
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Rule ID to cancel
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - Automation
+      summary: Toggle automation rule
+      description: Enable or disable an automation rule.
+      operationId: toggleAutomationRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ruleId
+                - enabled
+              properties:
+                ruleId:
+                  type: string
+                enabled:
+                  type: boolean
+            example:
+              ruleId: "rule_abc123"
+              enabled: true
+      responses:
+        '200':
+          description: Rule toggled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/automation/run:
+    get:
+      tags:
+        - Automation
+      summary: Get automation status
+      description: Get the current status of automation services.
+      operationId: getAutomationStatus
+      responses:
+        '200':
+          description: Automation status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Automation
+      summary: Run automation
+      description: Run all automation services (rules, trailing stops, scaled exits, alerts, order queue).
+      operationId: runAutomation
+      responses:
+        '200':
+          description: Automation run results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRunResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/automation/trailing-stop:
+    get:
+      tags:
+        - Automation
+      summary: List trailing stops
+      description: Get active trailing stops.
+      operationId: listTrailingStops
+      responses:
+        '200':
+          description: Trailing stops list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Automation
+      summary: Create trailing stop
+      description: Create a new trailing stop.
+      operationId: createTrailingStop
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - symbol
+                - trailPercent
+              properties:
+                symbol:
+                  type: string
+                trailPercent:
+                  type: number
+                  minimum: 0.1
+                quantity:
+                  type: integer
+      responses:
+        '200':
+          description: Trailing stop created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/automation/scaled-exits:
+    get:
+      tags:
+        - Automation
+      summary: List scaled exit plans
+      description: Get active scaled exit plans.
+      operationId: listScaledExits
+      responses:
+        '200':
+          description: Scaled exits list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Automation
+      summary: Create scaled exit plan
+      description: Create a new scaled exit plan with multiple targets.
+      operationId: createScaledExit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - symbol
+                - targets
+              properties:
+                symbol:
+                  type: string
+                targets:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      price:
+                        type: number
+                      percent:
+                        type: number
+      responses:
+        '200':
+          description: Scaled exit created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/automation/order-queue:
+    get:
+      tags:
+        - Automation
+      summary: Get order queue
+      description: Get queued orders and queue status.
+      operationId: getOrderQueue
+      responses:
+        '200':
+          description: Order queue status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Automation
+      summary: Order queue action
+      description: Perform an action on the order queue.
+      operationId: orderQueueAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [process, enqueue, batch, market, limit, stop-loss, bracket, cancel-all, clear-completed, sync]
+            examples:
+              process:
+                summary: Process queue
+                value:
+                  action: process
+              marketOrder:
+                summary: Quick market order
+                value:
+                  action: market
+                  symbol: AAPL
+                  side: buy
+                  quantity: 10
+              bracketOrder:
+                summary: Bracket order
+                value:
+                  action: bracket
+                  symbol: AAPL
+                  side: buy
+                  quantity: 10
+                  entryPrice: 150.00
+                  stopLoss: 142.50
+                  takeProfit: 165.00
+      responses:
+        '200':
+          description: Action result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/options/chain:
+    get:
+      tags:
+        - Options
+      summary: Get options chain
+      description: Fetch options chain for an underlying symbol with quotes and Greeks.
+      operationId: getOptionsChain
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Underlying symbol
+          schema:
+            type: string
+        - name: expiration
+          in: query
+          description: Expiration date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: type
+          in: query
+          description: Option type
+          schema:
+            type: string
+            enum: [call, put]
+        - name: minStrike
+          in: query
+          description: Minimum strike price
+          schema:
+            type: number
+        - name: maxStrike
+          in: query
+          description: Maximum strike price
+          schema:
+            type: number
+        - name: limit
+          in: query
+          description: Maximum contracts to return
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Options chain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptionsChainResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/options/contracts:
+    get:
+      tags:
+        - Options
+      summary: Get option contracts
+      description: Fetch option contracts with filtering.
+      operationId: getOptionsContracts
+      parameters:
+        - name: id
+          in: query
+          description: Specific contract ID
+          schema:
+            type: string
+        - name: symbol
+          in: query
+          description: Contract symbol
+          schema:
+            type: string
+        - name: underlying
+          in: query
+          description: Underlying symbol (required if no id/symbol)
+          schema:
+            type: string
+        - name: expiration
+          in: query
+          description: Expiration date
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Option type
+          schema:
+            type: string
+            enum: [call, put]
+        - name: limit
+          in: query
+          description: Maximum contracts
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Contracts list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptionsContractsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/options/quotes:
+    get:
+      tags:
+        - Options
+      summary: Get option quotes
+      description: Get quotes with Greeks for option contracts.
+      operationId: getOptionsQuotes
+      parameters:
+        - name: symbols
+          in: query
+          required: true
+          description: Comma-separated contract symbols
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Option quotes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/options/orders:
+    get:
+      tags:
+        - Options
+      summary: Get options orders
+      description: Get options orders.
+      operationId: getOptionsOrders
+      responses:
+        '200':
+          description: Options orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication
+
+  responses:
+    BadRequest:
+      description: Bad Request - Invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized - Invalid or missing API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: Unauthorized
+            message: "Valid API key required. Set X-API-Key header or Authorization: Bearer <key>"
+    RateLimited:
+      description: Rate Limit Exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RateLimitError'
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until rate limit reset
+    InternalError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        message:
+          type: string
+
+    RateLimitError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Rate limit exceeded
+        message:
+          type: string
+          example: Too many requests. Please try again later.
+        retryAfter:
+          type: integer
+          description: Seconds until rate limit reset
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: integer
+          description: Uptime in seconds
+        version:
+          type: string
+        environment:
+          type: string
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              status:
+                type: string
+                enum: [pass, fail, warn]
+              message:
+                type: string
+              latencyMs:
+                type: integer
+
+    AccountResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+            currency:
+              type: string
+            buyingPower:
+              type: number
+            cash:
+              type: number
+            portfolioValue:
+              type: number
+            equity:
+              type: number
+            lastEquity:
+              type: number
+            longMarketValue:
+              type: number
+            shortMarketValue:
+              type: number
+            initialMargin:
+              type: number
+            maintenanceMargin:
+              type: number
+            daytradeCount:
+              type: integer
+            patternDayTrader:
+              type: boolean
+            dailyPL:
+              type: number
+            dailyPLPercent:
+              type: number
+
+    Position:
+      type: object
+      properties:
+        symbol:
+          type: string
+        assetId:
+          type: string
+        exchange:
+          type: string
+        assetClass:
+          type: string
+        quantity:
+          type: number
+        side:
+          type: string
+        avgEntryPrice:
+          type: number
+        currentPrice:
+          type: number
+        marketValue:
+          type: number
+        costBasis:
+          type: number
+        unrealizedPL:
+          type: number
+        unrealizedPLPercent:
+          type: number
+        unrealizedIntradayPL:
+          type: number
+        unrealizedIntradayPLPercent:
+          type: number
+        lastdayPrice:
+          type: number
+        changeToday:
+          type: number
+
+    PositionsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            positions:
+              type: array
+              items:
+                $ref: '#/components/schemas/Position'
+            totals:
+              type: object
+              properties:
+                totalMarketValue:
+                  type: number
+                totalCostBasis:
+                  type: number
+                totalUnrealizedPL:
+                  type: number
+                totalIntradayPL:
+                  type: number
+            count:
+              type: integer
+
+    ManagedPositionsResponse:
+      type: object
+      properties:
+        positions:
+          type: array
+          items:
+            type: object
+        count:
+          type: integer
+        status:
+          type: string
+        stats:
+          type: object
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        clientOrderId:
+          type: string
+        symbol:
+          type: string
+        assetClass:
+          type: string
+        quantity:
+          type: number
+        filledQuantity:
+          type: number
+        type:
+          type: string
+        side:
+          type: string
+        timeInForce:
+          type: string
+        limitPrice:
+          type: number
+          nullable: true
+        stopPrice:
+          type: number
+          nullable: true
+        filledAvgPrice:
+          type: number
+          nullable: true
+        status:
+          type: string
+        extendedHours:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        submittedAt:
+          type: string
+        filledAt:
+          type: string
+          nullable: true
+        canceledAt:
+          type: string
+          nullable: true
+
+    OrdersResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/Order'
+            count:
+              type: integer
+
+    OrderRequest:
+      type: object
+      required:
+        - symbol
+        - side
+        - quantity
+        - type
+      properties:
+        symbol:
+          type: string
+          description: Stock symbol (1-10 characters, uppercase)
+        side:
+          type: string
+          enum: [buy, sell]
+        quantity:
+          type: integer
+          minimum: 1
+        type:
+          type: string
+          enum: [market, limit]
+        timeInForce:
+          type: string
+          enum: [day, gtc, opg, ioc, fok]
+          default: day
+        limitPrice:
+          type: number
+          description: Required for limit orders
+          minimum: 0.01
+        stopPrice:
+          type: number
+          minimum: 0.01
+        skipRiskCheck:
+          type: boolean
+          default: false
+        skipRegimeCheck:
+          type: boolean
+          default: false
+
+    OrderSubmitResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            clientOrderId:
+              type: string
+            symbol:
+              type: string
+            side:
+              type: string
+            type:
+              type: string
+            quantity:
+              type: number
+            status:
+              type: string
+            submittedAt:
+              type: string
+
+    RiskRejectionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Order rejected by risk engine
+        reason:
+          type: string
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              passed:
+                type: boolean
+              details:
+                type: string
+
+    TradeRequest:
+      type: object
+      required:
+        - symbol
+        - side
+        - quantity
+        - entryPrice
+      properties:
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        quantity:
+          type: integer
+          minimum: 1
+        entryPrice:
+          type: number
+          minimum: 0.01
+        takeProfitPct:
+          type: number
+          minimum: 0.01
+          description: Take profit percentage
+        stopLossPct:
+          type: number
+          minimum: 0.01
+          description: Stop loss percentage
+        timeStopHours:
+          type: number
+          minimum: 0.1
+          description: Time-based stop in hours
+        trailingStopPct:
+          type: number
+          minimum: 0.01
+          description: Trailing stop percentage
+
+    TradeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        skipped:
+          type: boolean
+          description: Whether trade was skipped due to low confidence
+        reason:
+          type: string
+          description: Reason for skipping (if skipped)
+        position:
+          type: object
+          description: Created position (if not skipped)
+        confidence:
+          $ref: '#/components/schemas/ConfidenceScore'
+
+    ConfidenceScore:
+      type: object
+      properties:
+        overall:
+          type: number
+          minimum: 0
+          maximum: 100
+        breakdown:
+          type: object
+          properties:
+            regime:
+              type: number
+            technicals:
+              type: number
+            risk:
+              type: number
+            volatility:
+              type: number
+            time:
+              type: number
+        reasoning:
+          type: object
+          properties:
+            regime:
+              type: string
+            technicals:
+              type: string
+            risk:
+              type: string
+            volatility:
+              type: string
+            time:
+              type: string
+
+    ConfidencePreviewResponse:
+      type: object
+      properties:
+        symbol:
+          type: string
+        side:
+          type: string
+        entryPrice:
+          type: number
+        confidence:
+          $ref: '#/components/schemas/ConfidenceScore'
+        suggestedLevels:
+          type: object
+          properties:
+            takeProfit:
+              type: number
+            stopLoss:
+              type: number
+
+    RiskConfigResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            config:
+              type: object
+              properties:
+                maxPositionSize:
+                  type: integer
+                maxOrderSize:
+                  type: integer
+                maxDailyLoss:
+                  type: number
+                allowedSymbols:
+                  type: array
+                  items:
+                    type: string
+                tradingEnabled:
+                  type: boolean
+            headroom:
+              type: object
+              properties:
+                tradingEnabled:
+                  type: boolean
+                positionHeadroom:
+                  type: integer
+                dailyLossHeadroom:
+                  type: number
+            status:
+              type: string
+              enum: [ACTIVE, DISABLED]
+
+    RiskConfigUpdate:
+      type: object
+      properties:
+        maxPositionSize:
+          type: integer
+          minimum: 1
+        maxOrderSize:
+          type: integer
+          minimum: 1
+        maxDailyLoss:
+          type: number
+          minimum: 0.01
+        allowedSymbols:
+          type: array
+          items:
+            type: string
+        tradingEnabled:
+          type: boolean
+
+    RiskConfigUpdateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            config:
+              type: object
+
+    KillSwitchResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            active:
+              type: boolean
+            tradingEnabled:
+              type: boolean
+            message:
+              type: string
+
+    KillSwitchToggleResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            active:
+              type: boolean
+            message:
+              type: string
+            cancelledOrders:
+              type: integer
+
+    RegimeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        symbol:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        regime:
+          type: string
+          enum: [TREND, CHOP, VOL_EXPANSION, UNTRADEABLE]
+        score:
+          type: number
+        tradingEnabled:
+          type: boolean
+        indicators:
+          type: object
+        reasons:
+          type: array
+          items:
+            type: string
+
+    BatchRegimeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        results:
+          type: array
+          items:
+            type: object
+
+    PortfolioAnalyticsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            portfolio:
+              type: object
+            sectorAllocation:
+              type: object
+            assetClassAllocation:
+              type: object
+            riskParityWeights:
+              type: object
+            kellyAllocations:
+              type: object
+            rebalanceSuggestions:
+              type: array
+              items:
+                type: object
+            correlationMatrix:
+              type: object
+            riskMetrics:
+              type: object
+              properties:
+                sharpeRatio:
+                  type: number
+                sortino:
+                  type: number
+                maxDrawdownPercent:
+                  type: number
+                maxDrawdown:
+                  type: number
+                valueAtRisk:
+                  type: number
+                valueAtRiskPercent:
+                  type: number
+                volatility:
+                  type: number
+                beta:
+                  type: number
+                calmarRatio:
+                  type: number
+            diversification:
+              type: object
+
+    StatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        stats:
+          type: object
+
+    AlertsResponse:
+      type: object
+      properties:
+        alerts:
+          type: array
+          items:
+            type: object
+        count:
+          type: integer
+        pendingOnly:
+          type: boolean
+
+    IntentsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            intents:
+              type: array
+              items:
+                type: object
+            count:
+              type: integer
+
+    IntentRequest:
+      type: object
+      required:
+        - symbol
+        - side
+        - quantity
+        - orderType
+      properties:
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        quantity:
+          type: integer
+          minimum: 1
+        orderType:
+          type: string
+          enum: [market, limit]
+        limitPrice:
+          type: number
+          description: Required for limit orders
+        strategy:
+          type: string
+          default: manual
+        autoExecute:
+          type: boolean
+          default: true
+
+    IntentCreateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            intent:
+              type: object
+            riskCheck:
+              type: object
+              properties:
+                approved:
+                  type: boolean
+                reason:
+                  type: string
+                checks:
+                  type: array
+                  items:
+                    type: object
+            order:
+              type: object
+              nullable: true
+
+    AutomationRulesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            rules:
+              type: array
+              items:
+                type: object
+            count:
+              type: integer
+
+    AutomationRuleRequest:
+      type: object
+      required:
+        - ruleType
+        - symbol
+      properties:
+        ruleType:
+          type: string
+          enum: [STOP_LOSS, TAKE_PROFIT, LIMIT_ORDER, OCO, CUSTOM]
+        symbol:
+          type: string
+        quantity:
+          type: integer
+        entryPrice:
+          type: number
+        stopLossAmount:
+          type: number
+          description: For STOP_LOSS rule type
+        takeProfitAmount:
+          type: number
+          description: For TAKE_PROFIT rule type
+        stopLossPrice:
+          type: number
+          description: For OCO rule type
+        takeProfitPrice:
+          type: number
+          description: For OCO rule type
+        targetPrice:
+          type: number
+          description: For LIMIT_ORDER rule type
+        orderSide:
+          type: string
+          enum: [buy, sell]
+        isPercent:
+          type: boolean
+          default: true
+        positionSide:
+          type: string
+          enum: [long, short]
+          default: long
+
+    AutomationRuleCreateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+
+    AutomationRunResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            automation:
+              type: object
+            trailingStops:
+              type: object
+            scaledExits:
+              type: object
+            alerts:
+              type: object
+            orderQueue:
+              type: object
+
+    OptionsChainResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            symbol:
+              type: string
+            chain:
+              type: array
+              items:
+                type: object
+                properties:
+                  contract:
+                    type: object
+                    properties:
+                      symbol:
+                        type: string
+                      name:
+                        type: string
+                      expiration:
+                        type: string
+                      strike:
+                        type: number
+                      type:
+                        type: string
+                        enum: [call, put]
+                      openInterest:
+                        type: integer
+                  quote:
+                    type: object
+                    nullable: true
+                    properties:
+                      bid:
+                        type: number
+                      ask:
+                        type: number
+                      last:
+                        type: number
+                      spread:
+                        type: number
+                  greeks:
+                    type: object
+                    nullable: true
+                    properties:
+                      delta:
+                        type: number
+                      gamma:
+                        type: number
+                      theta:
+                        type: number
+                      vega:
+                        type: number
+                      iv:
+                        type: number
+            expirations:
+              type: array
+              items:
+                type: string
+            strikes:
+              type: array
+              items:
+                type: number
+            count:
+              type: integer
+            nextPageToken:
+              type: string
+              nullable: true
+
+    OptionsContractsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            contracts:
+              type: array
+              items:
+                type: object
+            count:
+              type: integer
+            nextPageToken:
+              type: string
+              nullable: true
