@@ -152,14 +152,16 @@ function checkTakeProfit(
   }
   
   if (takeProfit.type === 'trailing') {
+    // Calculate peak profit (based on high water mark reaching activation threshold)
+    const peakProfitPct = isLong
+      ? ((highWaterMark - entryPrice) / entryPrice) * 100
+      : ((entryPrice - highWaterMark) / entryPrice) * 100;
+    
+    // Activation is based on whether the PEAK ever reached the threshold
     const activationMet = takeProfit.trailingActivationPct && 
-      profitPct >= takeProfit.trailingActivationPct;
+      peakProfitPct >= takeProfit.trailingActivationPct;
     
     if (activationMet && takeProfit.trailingCallbackPct) {
-      const peakProfitPct = isLong
-        ? ((highWaterMark - entryPrice) / entryPrice) * 100
-        : ((entryPrice - highWaterMark) / entryPrice) * 100;
-      
       const pullback = peakProfitPct - profitPct;
       
       if (pullback >= takeProfit.trailingCallbackPct && profitPct > 0) {
