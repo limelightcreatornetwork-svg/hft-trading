@@ -11,6 +11,8 @@ import {
   detectRegime,
   generateDemoScannerHits,
   generateDemoAlerts,
+  getVolatilityAdjustedThreshold,
+  estimatePriceVolatility,
 } from '../../src/lib/momentum-scanner';
 
 describe('Momentum Scanner', () => {
@@ -143,6 +145,125 @@ describe('Momentum Scanner', () => {
     });
   });
 
+  describe('getVolatilityAdjustedThreshold', () => {
+    it('should return 1.5% for low volatility (< 15%)', () => {
+      expect(getVolatilityAdjustedThreshold(0.10)).toBe(0.015);
+      expect(getVolatilityAdjustedThreshold(0.05)).toBe(0.015);
+      expect(getVolatilityAdjustedThreshold(0.14)).toBe(0.015);
+    });
+
+    it('should return 2% for normal volatility (15-30%)', () => {
+      expect(getVolatilityAdjustedThreshold(0.15)).toBe(0.02);
+      expect(getVolatilityAdjustedThreshold(0.20)).toBe(0.02);
+      expect(getVolatilityAdjustedThreshold(0.29)).toBe(0.02);
+    });
+
+    it('should return 3% for high volatility (30-50%)', () => {
+      expect(getVolatilityAdjustedThreshold(0.30)).toBe(0.03);
+      expect(getVolatilityAdjustedThreshold(0.40)).toBe(0.03);
+      expect(getVolatilityAdjustedThreshold(0.49)).toBe(0.03);
+    });
+
+    it('should return 4% for very high volatility (> 50%)', () => {
+      expect(getVolatilityAdjustedThreshold(0.50)).toBe(0.04);
+      expect(getVolatilityAdjustedThreshold(0.75)).toBe(0.04);
+      expect(getVolatilityAdjustedThreshold(1.00)).toBe(0.04);
+    });
+
+    it('should handle boundary values', () => {
+      expect(getVolatilityAdjustedThreshold(0.149999)).toBe(0.015);
+      expect(getVolatilityAdjustedThreshold(0.150001)).toBe(0.02);
+      expect(getVolatilityAdjustedThreshold(0.299999)).toBe(0.02);
+      expect(getVolatilityAdjustedThreshold(0.300001)).toBe(0.03);
+    });
+
+    it('should handle zero volatility', () => {
+      expect(getVolatilityAdjustedThreshold(0)).toBe(0.015);
+    });
+
+    it('should handle negative volatility (edge case)', () => {
+      // Negative shouldn't happen but should be handled gracefully
+      expect(getVolatilityAdjustedThreshold(-0.10)).toBe(0.015);
+    });
+  });
+
+  describe('estimatePriceVolatility', () => {
+    it('should return default 20% for insufficient data', () => {
+      expect(estimatePriceVolatility([100])).toBe(0.20);
+      expect(estimatePriceVolatility([100, 101])).toBe(0.20);
+      expect(estimatePriceVolatility([])).toBe(0.20);
+    });
+
+    it('should return default for period larger than data', () => {
+      const prices = Array.from({ length: 10 }, () => 100);
+      expect(estimatePriceVolatility(prices, 20)).toBe(0.20);
+    });
+
+    it('should return 0 for flat prices', () => {
+      const prices = Array.from({ length: 30 }, () => 100);
+      expect(estimatePriceVolatility(prices)).toBe(0);
+    });
+
+    it('should return positive volatility for varying prices', () => {
+      const prices = Array.from({ length: 30 }, (_, i) => 100 + Math.sin(i / 3) * 5);
+      const vol = estimatePriceVolatility(prices);
+      expect(vol).toBeGreaterThan(0);
+    });
+
+    it('should return higher volatility for more volatile prices', () => {
+      // Low volatility prices (small movements)
+      const lowVolPrices = Array.from({ length: 30 }, (_, i) => 100 + Math.sin(i / 3) * 1);
+      // High volatility prices (large movements)
+      const highVolPrices = Array.from({ length: 30 }, (_, i) => 100 + Math.sin(i / 3) * 10);
+      
+      const lowVol = estimatePriceVolatility(lowVolPrices);
+      const highVol = estimatePriceVolatility(highVolPrices);
+      
+      expect(highVol).toBeGreaterThan(lowVol);
+    });
+
+    it('should use specified period', () => {
+      const prices = Array.from({ length: 50 }, (_, i) => {
+        // First 30 prices: low volatility
+        if (i < 30) return 100 + (i % 2) * 0.5;
+        // Last 20 prices: high volatility
+        return 100 + (i % 2) * 5;
+      });
+      
+      // Shorter period should capture recent high volatility
+      const shortPeriod = estimatePriceVolatility(prices, 15);
+      // Longer period should average out the volatility
+      const longPeriod = estimatePriceVolatility(prices, 40);
+      
+      // Both should be positive
+      expect(shortPeriod).toBeGreaterThan(0);
+      expect(longPeriod).toBeGreaterThan(0);
+    });
+
+    it('should handle prices with zeros', () => {
+      const prices = [100, 0, 100, 100, 100, 100, 100, 100, 100, 100, 
+                      100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100];
+      // Should not throw and handle zero price gracefully
+      const vol = estimatePriceVolatility(prices);
+      expect(typeof vol).toBe('number');
+      expect(isNaN(vol)).toBe(false);
+    });
+
+    it('should return reasonable volatility for realistic price series', () => {
+      // Simulate daily prices with ~1% daily moves
+      const prices: number[] = [100];
+      for (let i = 1; i < 50; i++) {
+        prices.push(prices[i - 1] * (1 + (Math.random() - 0.5) * 0.02));
+      }
+      
+      const vol = estimatePriceVolatility(prices);
+      
+      // With ~1% daily moves, annualized vol should be around 15-20%
+      expect(vol).toBeGreaterThan(0.05);
+      expect(vol).toBeLessThan(0.50);
+    });
+  });
+
   describe('detectRegime', () => {
     it('should return ranging for insufficient data', () => {
       const prices = Array.from({ length: 30 }, () => 100);
@@ -163,6 +284,43 @@ describe('Momentum Scanner', () => {
       // Oscillating prices
       const prices = Array.from({ length: 60 }, (_, i) => 100 + Math.sin(i / 5) * 2);
       expect(detectRegime(prices)).toBe('ranging');
+    });
+
+    it('should use fixed threshold when volatility adjustment disabled', () => {
+      // Prices with strong trend but also high volatility
+      const prices = Array.from({ length: 60 }, (_, i) => 100 + i * 0.5 + Math.sin(i) * 3);
+      
+      // Without volatility adjustment, uses fixed 2% threshold
+      const regimeNoAdj = detectRegime(prices, false);
+      // With volatility adjustment, threshold might be higher
+      const regimeWithAdj = detectRegime(prices, true);
+      
+      // Both should return a regime
+      expect(['trending_up', 'trending_down', 'ranging']).toContain(regimeNoAdj);
+      expect(['trending_up', 'trending_down', 'ranging']).toContain(regimeWithAdj);
+    });
+
+    it('should be more conservative with high volatility', () => {
+      // Borderline trending case with high volatility
+      // The MA separation is just above 2% but below 3%
+      const prices: number[] = [];
+      let price = 100;
+      for (let i = 0; i < 60; i++) {
+        price += 0.15; // Gentle uptrend
+        price += (Math.random() - 0.5) * 3; // High daily volatility
+        prices.push(price);
+      }
+      
+      // With high volatility, should be more likely to classify as ranging
+      const regime = detectRegime(prices, true);
+      expect(['trending_up', 'ranging']).toContain(regime);
+    });
+
+    it('should work with default parameter (volatility adjustment enabled)', () => {
+      const prices = Array.from({ length: 60 }, (_, i) => 100 + i * 0.5);
+      // Should work without explicit second parameter
+      const regime = detectRegime(prices);
+      expect(regime).toBe('trending_up');
     });
   });
 

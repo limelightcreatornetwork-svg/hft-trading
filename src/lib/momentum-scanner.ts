@@ -154,20 +154,93 @@ export function calculateATR(highs: number[], lows: number[], closes: number[], 
   return calculateSMA(trueRanges, period);
 }
 
-// Detect market regime
-export function detectRegime(prices: number[]): 'trending_up' | 'trending_down' | 'ranging' {
+/**
+ * Calculate volatility-adjusted threshold for regime detection.
+ * Higher volatility requires stronger MA separation to confirm a trend.
+ * 
+ * @param volatility - Annualized volatility as decimal (e.g., 0.25 for 25%)
+ * @returns Threshold for MA separation (as decimal)
+ */
+export function getVolatilityAdjustedThreshold(volatility: number): number {
+  // Base threshold: 2% (0.02)
+  // Low volatility (< 15%): use 1.5% - trends are clearer in calm markets
+  // Normal volatility (15-30%): use 2% - standard threshold
+  // High volatility (> 30%): use 3% - need stronger confirmation in choppy markets
+  // Very high volatility (> 50%): use 4% - only very strong trends should qualify
+  
+  if (volatility < 0.15) {
+    return 0.015;
+  } else if (volatility < 0.30) {
+    return 0.02;
+  } else if (volatility < 0.50) {
+    return 0.03;
+  } else {
+    return 0.04;
+  }
+}
+
+/**
+ * Estimate annualized volatility from price series.
+ * Uses standard deviation of daily returns, annualized by sqrt(252).
+ * 
+ * @param prices - Array of prices (oldest first)
+ * @param period - Number of periods to use for calculation
+ * @returns Annualized volatility as decimal
+ */
+export function estimatePriceVolatility(prices: number[], period: number = 20): number {
+  if (prices.length < period + 1) return 0.20; // default 20% if insufficient data
+  
+  // Calculate returns for the last 'period' prices
+  const returns: number[] = [];
+  const startIdx = prices.length - period - 1;
+  for (let i = startIdx + 1; i < prices.length; i++) {
+    if (prices[i - 1] > 0) {
+      returns.push((prices[i] - prices[i - 1]) / prices[i - 1]);
+    }
+  }
+  
+  if (returns.length < 2) return 0.20;
+  
+  // Calculate standard deviation
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+  const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / returns.length;
+  const dailyStdDev = Math.sqrt(variance);
+  
+  // Annualize (252 trading days)
+  return dailyStdDev * Math.sqrt(252);
+}
+
+/**
+ * Detect market regime using volatility-adjusted thresholds.
+ * 
+ * In high volatility environments, we require stronger MA separation
+ * to confirm a trend, reducing false signals in choppy markets.
+ * 
+ * @param prices - Array of prices (oldest first, at least 50 required)
+ * @param useVolatilityAdjustment - Whether to adjust threshold based on volatility
+ * @returns Market regime: 'trending_up', 'trending_down', or 'ranging'
+ */
+export function detectRegime(
+  prices: number[],
+  useVolatilityAdjustment: boolean = true
+): 'trending_up' | 'trending_down' | 'ranging' {
   if (prices.length < 50) return 'ranging';
   
   const sma20 = calculateSMA(prices, 20);
   const sma50 = calculateSMA(prices, 50);
   const currentPrice = prices[prices.length - 1];
-  // TODO: Use volatility for regime detection threshold adjustment
-  // const volatility = atr / currentPrice;
+  
+  // Calculate volatility and adjust threshold
+  let threshold = 0.02; // default 2%
+  if (useVolatilityAdjustment) {
+    const volatility = estimatePriceVolatility(prices);
+    threshold = getVolatilityAdjustedThreshold(volatility);
+  }
   
   // Strong trend if price is significantly above/below both MAs
   const priceAboveMAs = currentPrice > sma20 && currentPrice > sma50;
   const priceBelowMAs = currentPrice < sma20 && currentPrice < sma50;
-  const masTrending = Math.abs(sma20 - sma50) / currentPrice > 0.02;
+  const masTrending = Math.abs(sma20 - sma50) / currentPrice > threshold;
   
   if (priceAboveMAs && masTrending && sma20 > sma50) return 'trending_up';
   if (priceBelowMAs && masTrending && sma20 < sma50) return 'trending_down';
