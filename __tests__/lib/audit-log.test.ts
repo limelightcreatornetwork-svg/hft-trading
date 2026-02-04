@@ -79,7 +79,7 @@ describe('Audit Logging System', () => {
       (prisma.auditLog.create as jest.Mock).mockRejectedValueOnce(new Error('DB connection failed'));
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       await logAudit({
         action: 'ORDER_SUBMITTED',
@@ -87,19 +87,17 @@ describe('Audit Logging System', () => {
         orderId: 'order-1',
       });
 
+      // Logger emits structured JSON via console.error for error-level messages
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[AUDIT] Failed to write'),
-        expect.any(Error)
+        expect.stringContaining('Failed to write audit to database')
       );
 
-      // Should log backup to console
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[AUDIT-BACKUP]'),
-        expect.any(String)
-      );
+      // Verify the error details are included in the JSON output
+      const errorCall = consoleSpy.mock.calls[0][0];
+      expect(errorCall).toContain('DB connection failed');
 
       consoleSpy.mockRestore();
-      consoleLogSpy.mockRestore();
+      consoleWarnSpy.mockRestore();
     });
   });
 

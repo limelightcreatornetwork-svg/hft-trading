@@ -111,14 +111,25 @@ describe('Environment Utilities', () => {
 
     it('should return default for invalid number', () => {
       process.env.NUM_VAR = 'not_a_number';
+      // Logger uses 'error' level in test env; set LOG_LEVEL to 'warn' so warn messages emit
+      const origLogLevel = process.env.LOG_LEVEL;
+      process.env.LOG_LEVEL = 'warn';
+      // Re-require logger to pick up new log level
+      jest.resetModules();
+      const { getNumericEnv: getNumericEnvFresh } = require('../../src/lib/env');
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
-      expect(getNumericEnv('NUM_VAR', 50)).toBe(50);
+
+      expect(getNumericEnvFresh('NUM_VAR', 50)).toBe(50);
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid numeric value')
+        expect.stringContaining('Invalid numeric')
       );
-      
+
       consoleSpy.mockRestore();
+      if (origLogLevel === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = origLogLevel;
+      }
     });
   });
 
