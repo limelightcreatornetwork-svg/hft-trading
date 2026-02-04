@@ -5,6 +5,7 @@ import {
   RegimeResult,
 } from '@/lib/regime/index';
 import alpaca from '@/lib/alpaca';
+import { withAuth } from '@/lib/api-auth';
 
 // Cache regime results briefly to avoid excessive API calls
 const regimeCache = new Map<string, { result: RegimeResult; timestamp: number }>();
@@ -170,14 +171,14 @@ async function fetchMarketData(symbol: string): Promise<MarketDataInput> {
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ symbol: string }> }
+export const GET = withAuth(async function GET(
+  _request: NextRequest,
+  context?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { symbol } = await params;
+    const { symbol } = await context!.params;
     const upperSymbol = symbol.toUpperCase();
-    
+
     // Check cache
     const cached = regimeCache.get(upperSymbol);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
@@ -186,20 +187,20 @@ export async function GET(
         cached: true,
       });
     }
-    
+
     // Fetch market data
     const marketData = await fetchMarketData(upperSymbol);
-    
+
     // Create detector and classify
     const detector = createRegimeDetector();
     const result = detector.detect(marketData);
-    
+
     // Cache result
     regimeCache.set(upperSymbol, {
       result,
       timestamp: Date.now(),
     });
-    
+
     return NextResponse.json({
       ...result,
       cached: false,
@@ -211,19 +212,19 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * POST allows custom market data input
  */
-export async function POST(
+export const POST = withAuth(async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ symbol: string }> }
+  context?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { symbol } = await params;
+    const { symbol } = await context!.params;
     const body = await request.json();
-    
+
     // Validate input
     const marketData: MarketDataInput = {
       symbol: symbol.toUpperCase(),
@@ -244,13 +245,13 @@ export async function POST(
       gapSize: body.gapSize,
       lastUpdateMs: body.lastUpdateMs || 0,
     };
-    
+
     // Custom config from request
     const config = body.config || {};
-    
+
     const detector = createRegimeDetector(config);
     const result = detector.detect(marketData);
-    
+
     return NextResponse.json(result);
   } catch (error) {
     console.error('Regime detection error:', error);
@@ -259,4 +260,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRegimeDetector, AlpacaRegimeResult } from '@/lib/regime';
+import { withAuth } from '@/lib/api-auth';
 
 // In-memory regime history (for backtesting)
 // In production, this would be stored in a database
@@ -11,17 +12,17 @@ function addToHistory(result: AlpacaRegimeResult) {
   if (!regimeHistory.has(symbol)) {
     regimeHistory.set(symbol, []);
   }
-  
+
   const history = regimeHistory.get(symbol)!;
   history.push(result);
-  
+
   // Keep only the last MAX_HISTORY_SIZE entries
   if (history.length > MAX_HISTORY_SIZE) {
     history.shift();
   }
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const symbol = searchParams.get('symbol') || 'SPY';
@@ -55,17 +56,17 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Regime detection error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Failed to detect regime',
       },
       { status: 500 }
     );
   }
-}
+});
 
 // POST endpoint for batch regime detection on multiple symbols
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const symbols: string[] = body.symbols || ['SPY'];
@@ -93,11 +94,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Batch regime detection error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Batch detection failed',
       },
       { status: 500 }
     );
   }
-}
+});
