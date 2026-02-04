@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { getRegimeDetector, AlpacaRegimeResult } from '@/lib/regime';
 import { apiHandler, apiSuccess } from '@/lib/api-helpers';
+import { createLogger, serializeError } from '@/lib/logger';
+
+const log = createLogger('api:regime');
 
 // In-memory regime history (for backtesting)
 // In production, this would be stored in a database
@@ -13,12 +16,14 @@ function addToHistory(result: AlpacaRegimeResult) {
     regimeHistory.set(symbol, []);
   }
 
-  const history = regimeHistory.get(symbol)!;
-  history.push(result);
+  const history = regimeHistory.get(symbol);
+  if (history) {
+    history.push(result);
 
-  // Keep only the last MAX_HISTORY_SIZE entries
-  if (history.length > MAX_HISTORY_SIZE) {
-    history.shift();
+    // Keep only the last MAX_HISTORY_SIZE entries
+    if (history.length > MAX_HISTORY_SIZE) {
+      history.shift();
+    }
   }
 }
 
@@ -62,7 +67,8 @@ export const POST = apiHandler(async function POST(request: NextRequest) {
         const result = await detector.detect();
         addToHistory(result);
         return result;
-      } catch (_error) {
+      } catch (error) {
+        log.error('Regime detection failed', { symbol, ...serializeError(error) });
         return {
           symbol,
           error: 'Detection failed',

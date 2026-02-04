@@ -23,7 +23,10 @@ export const GET = apiHandler(async function GET(
   _request: NextRequest,
   context?: { params: Promise<Record<string, string>> }
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
   const strategy = await getStrategy(id);
 
   if (!strategy) {
@@ -37,7 +40,10 @@ export const PUT = apiHandler(async function PUT(
   request: NextRequest,
   context?: { params: Promise<Record<string, string>> }
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
 
   const existing = await getStrategy(id);
   if (!existing) {
@@ -59,7 +65,10 @@ export const DELETE = apiHandler(async function DELETE(
   _request: NextRequest,
   context?: { params: Promise<Record<string, string>> }
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
 
   const existing = await getStrategy(id);
   if (!existing) {
@@ -74,12 +83,16 @@ export const PATCH = apiHandler(async function PATCH(
   _request: NextRequest,
   context?: { params: Promise<Record<string, string>> }
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
 
-  try {
-    const strategy = await toggleStrategyEnabled(id);
-    return apiSuccess(strategy);
-  } catch {
+  const existing = await getStrategy(id);
+  if (!existing) {
     return apiError('Strategy not found', 404);
   }
+
+  const strategy = await toggleStrategyEnabled(id);
+  return apiSuccess(strategy);
 });

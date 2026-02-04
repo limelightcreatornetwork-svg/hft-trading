@@ -5,7 +5,7 @@ import {
   RegimeResult,
 } from '@/lib/regime/index';
 import alpaca from '@/lib/alpaca';
-import { apiHandler, apiSuccess } from '@/lib/api-helpers';
+import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
 import { createLogger, serializeError } from '@/lib/logger';
 
 const log = createLogger('api:regime');
@@ -178,7 +178,10 @@ export const GET = apiHandler(async function GET(
   _request: NextRequest,
   context?: { params: Promise<Record<string, string>> }
 ) {
-  const { symbol } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { symbol } = await context.params;
   const upperSymbol = symbol.toUpperCase();
 
   // Check cache
@@ -210,7 +213,10 @@ export const POST = apiHandler(async function POST(
   request: NextRequest,
   context?: { params: Promise<Record<string, string>> }
 ) {
-  const { symbol } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { symbol } = await context.params;
   const body = await request.json();
 
   // Validate input

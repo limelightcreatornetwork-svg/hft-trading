@@ -10,7 +10,7 @@ import {
   updateTrailingStop,
   cancelTrailingStop,
 } from '@/lib/trailing-stop';
-import { apiHandler, apiSuccess } from '@/lib/api-helpers';
+import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +20,10 @@ export const PATCH = apiHandler(async function PATCH(
   request: NextRequest,
   context?: RouteContext
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
   const body = await request.json();
 
   const { trailPercent, trailAmount, activationPercent, enabled } = body;
@@ -39,7 +42,10 @@ export const DELETE = apiHandler(async function DELETE(
   _request: NextRequest,
   context?: RouteContext
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
 
   await cancelTrailingStop(id);
 

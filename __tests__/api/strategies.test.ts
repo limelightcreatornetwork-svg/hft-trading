@@ -395,6 +395,7 @@ describe('Strategy API Endpoints', () => {
   describe('PATCH /api/strategies/[id]', () => {
     it('should toggle strategy enabled state', async () => {
       const toggled = { ...MOCK_STRATEGY, enabled: false };
+      (getStrategy as jest.Mock).mockResolvedValue(MOCK_STRATEGY);
       (toggleStrategyEnabled as jest.Mock).mockResolvedValue(toggled);
 
       const request = new NextRequest('http://localhost/api/strategies/strategy-1', {
@@ -409,10 +410,8 @@ describe('Strategy API Endpoints', () => {
       expect(toggleStrategyEnabled).toHaveBeenCalledWith('strategy-1');
     });
 
-    it('should return 404 when toggleStrategyEnabled throws', async () => {
-      (toggleStrategyEnabled as jest.Mock).mockRejectedValue(
-        new Error('Strategy not found: nonexistent')
-      );
+    it('should return 404 when strategy not found', async () => {
+      (getStrategy as jest.Mock).mockResolvedValue(null);
 
       const request = new NextRequest('http://localhost/api/strategies/nonexistent', {
         method: 'PATCH',

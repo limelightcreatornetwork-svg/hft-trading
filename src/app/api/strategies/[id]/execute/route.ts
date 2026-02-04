@@ -14,7 +14,10 @@ export const POST = apiHandler(async function POST(
   _request: NextRequest,
   context?: { params: Promise<Record<string, string>> }
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
 
   try {
     const results = await executeSingleStrategy(id);

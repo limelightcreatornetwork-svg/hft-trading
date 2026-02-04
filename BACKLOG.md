@@ -183,6 +183,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Automation API route tests: rules, run, trailing, scaled (+44 tests) | 65 | 2026-02-04 |
 | Automation alerts, monitor, order-queue API tests (+52 tests) | 66 | 2026-02-04 |
 | Dynamic routes + utility endpoint tests: position, trailing-stop/[id], scaled-exits/[id], alerts/check, stats, portfolio (+38 tests) | 67 | 2026-02-04 |
+| Remove non-null assertions in 7 dynamic routes, fix generic catch blocks, add error logging | 68 | 2026-02-04 |
 
 ---
 

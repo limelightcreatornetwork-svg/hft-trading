@@ -23,7 +23,10 @@ export const GET = apiHandler(async function GET(
   request: NextRequest,
   context?: RouteContext
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
   const { searchParams } = new URL(request.url);
   const history = searchParams.get('history') === 'true';
 
@@ -45,7 +48,10 @@ export const PATCH = apiHandler(async function PATCH(
   request: NextRequest,
   context?: RouteContext
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
   const body = await request.json();
 
   const { addTargets, removeTargetPercent, updateTrailing } = body;
@@ -63,7 +69,10 @@ export const DELETE = apiHandler(async function DELETE(
   _request: NextRequest,
   context?: RouteContext
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
 
   await cancelScaledExitPlan(id);
 

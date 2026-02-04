@@ -379,16 +379,17 @@ export function calculateRiskParityWeights(
   
   // Calculate target weights
   return inverseVols.map(v => {
-    const position = positions.find(p => p.symbol === v.symbol)!;
+    const position = positions.find(p => p.symbol === v.symbol);
     const targetWeight = totalInverseVol > 0 ? v.inverseVol / totalInverseVol : 1 / positions.length;
-    
+    const currentWeight = position?.weight ?? 0;
+
     return {
       symbol: v.symbol,
       volatility: v.volatility,
       inverseVolWeight: v.inverseVol,
       targetWeight,
-      currentWeight: position.weight,
-      adjustmentNeeded: targetWeight - position.weight,
+      currentWeight,
+      adjustmentNeeded: targetWeight - currentWeight,
     };
   });
 }

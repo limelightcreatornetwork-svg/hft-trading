@@ -17,7 +17,10 @@ export const GET = apiHandler(async function GET(
   _request: NextRequest,
   context?: RouteContext
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
 
   const order = orderQueue.getOrder(id);
 
@@ -52,7 +55,10 @@ export const DELETE = apiHandler(async function DELETE(
   _request: NextRequest,
   context?: RouteContext
 ) {
-  const { id } = await context!.params;
+  if (!context?.params) {
+    return apiError('Missing route parameters', 400);
+  }
+  const { id } = await context.params;
 
   const result = await orderQueue.cancelOrder(id);
 

@@ -17,7 +17,7 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
 
   // If specific contract ID or symbol provided, fetch single contract
   if (contractId || symbol) {
-    const contract = await getOptionContract(contractId || symbol!);
+    const contract = await getOptionContract((contractId || symbol) as string);
     return apiSuccess({
       contract: {
         id: contract.id,
