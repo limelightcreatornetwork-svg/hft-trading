@@ -10,6 +10,7 @@
 
 import { prisma } from './db';
 import { getLatestQuote, getPositions, AlpacaPosition } from './alpaca';
+import { withRetrySafe } from './retry';
 
 // ============================================
 // TYPES
@@ -520,17 +521,20 @@ async function handlePriceAlertTrigger(alert: PriceAlert, currentPrice: number):
   const message = alert.message || 
     `Price alert: ${alert.symbol} ${alert.alertType === 'PRICE_ABOVE' ? 'above' : 'below'} $${alert.targetValue.toFixed(2)} (current: $${currentPrice.toFixed(2)})`;
   
-  // Store in database
-  await prisma.alert.create({
-    data: {
-      positionId: alert.id,
-      type: alert.alertType,
-      message,
-      triggered: true,
-      triggeredAt: now,
-    },
-  });
-  
+  // Store in database with retry
+  await withRetrySafe(
+    () => prisma.alert.create({
+      data: {
+        positionId: alert.id,
+        type: alert.alertType,
+        message,
+        triggered: true,
+        triggeredAt: now,
+      },
+    }),
+    { maxRetries: 2, baseDelayMs: 200, maxDelayMs: 2000 }
+  );
+
   return {
     alertId: alert.id,
     alertType: alert.alertType,
@@ -556,16 +560,19 @@ async function handlePnLAlertTrigger(alert: PnLAlert, pnl: number, pnlPct: numbe
   const message = alert.message ||
     `P&L alert${alert.symbol ? ' for ' + alert.symbol : ' (portfolio)'}: ${alert.alertType} $${pnl.toFixed(2)} (${pnlPct.toFixed(2)}%)`;
   
-  await prisma.alert.create({
-    data: {
-      positionId: alert.id,
-      type: alert.alertType,
-      message,
-      triggered: true,
-      triggeredAt: now,
-    },
-  });
-  
+  await withRetrySafe(
+    () => prisma.alert.create({
+      data: {
+        positionId: alert.id,
+        type: alert.alertType,
+        message,
+        triggered: true,
+        triggeredAt: now,
+      },
+    }),
+    { maxRetries: 2, baseDelayMs: 200, maxDelayMs: 2000 }
+  );
+
   return {
     alertId: alert.id,
     alertType: alert.alertType,
@@ -596,16 +603,19 @@ async function handleVolumeSpikeAlertTrigger(
   const message = alert.message ||
     `Volume spike: ${alert.symbol} volume ${multiplierActual}x average (${currentVolume.toLocaleString()} vs ${avgVolume.toLocaleString()} avg)`;
   
-  await prisma.alert.create({
-    data: {
-      positionId: alert.id,
-      type: 'VOLUME_SPIKE',
-      message,
-      triggered: true,
-      triggeredAt: now,
-    },
-  });
-  
+  await withRetrySafe(
+    () => prisma.alert.create({
+      data: {
+        positionId: alert.id,
+        type: 'VOLUME_SPIKE',
+        message,
+        triggered: true,
+        triggeredAt: now,
+      },
+    }),
+    { maxRetries: 2, baseDelayMs: 200, maxDelayMs: 2000 }
+  );
+
   return {
     alertId: alert.id,
     alertType: 'VOLUME_SPIKE',
