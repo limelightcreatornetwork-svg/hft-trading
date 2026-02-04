@@ -16,6 +16,37 @@ jest.mock('../../src/lib/api-auth', () => ({
   authenticateRequest: jest.fn().mockReturnValue({ authenticated: true, clientId: 'test-client' }),
 }));
 
+// Mock circuit breakers
+const mockTradingStats = {
+  name: 'alpaca-trading',
+  state: 'CLOSED' as const,
+  consecutiveFailures: 0,
+  totalSuccesses: 10,
+  totalFailures: 0,
+  lastFailureTime: 0,
+  remainingCooldownMs: 0,
+};
+const mockMarketDataStats = {
+  name: 'alpaca-market-data',
+  state: 'CLOSED' as const,
+  consecutiveFailures: 0,
+  totalSuccesses: 20,
+  totalFailures: 0,
+  lastFailureTime: 0,
+  remainingCooldownMs: 0,
+};
+
+jest.mock('../../src/lib/circuit-breaker', () => ({
+  alpacaTradingCircuit: {
+    getStats: jest.fn(() => mockTradingStats),
+  },
+  alpacaMarketDataCircuit: {
+    getStats: jest.fn(() => mockMarketDataStats),
+  },
+}));
+
+import { alpacaTradingCircuit, alpacaMarketDataCircuit } from '../../src/lib/circuit-breaker';
+
 import { GET } from '../../src/app/api/health/route';
 import { prisma } from '../../src/lib/db';
 import { authenticateRequest } from '../../src/lib/api-auth';
@@ -156,6 +187,64 @@ describe('Health Check Endpoint', () => {
       const envCheck = data.data.checks.find((c: { name: string }) => c.name === 'environment');
       expect(envCheck).toBeDefined();
       expect(envCheck.status).toBe('pass');
+    });
+
+    it('should include circuit breaker check when all circuits closed', async () => {
+      (authenticateRequest as jest.Mock).mockReturnValue({ authenticated: true, clientId: 'test' });
+      (alpacaTradingCircuit.getStats as jest.Mock).mockReturnValue({ ...mockTradingStats, state: 'CLOSED' });
+      (alpacaMarketDataCircuit.getStats as jest.Mock).mockReturnValue({ ...mockMarketDataStats, state: 'CLOSED' });
+
+      const request = createMockRequest('http://localhost/api/health?detail=true');
+      const response = await GET(request);
+      const data = await response.json();
+
+      const cbCheck = data.data.checks.find((c: { name: string }) => c.name === 'circuit_breakers');
+      expect(cbCheck).toBeDefined();
+      expect(cbCheck.status).toBe('pass');
+      expect(cbCheck.message).toContain('CLOSED');
+    });
+
+    it('should warn when circuit breaker is HALF_OPEN', async () => {
+      (authenticateRequest as jest.Mock).mockReturnValue({ authenticated: true, clientId: 'test' });
+      (alpacaTradingCircuit.getStats as jest.Mock).mockReturnValue({ ...mockTradingStats, state: 'HALF_OPEN' });
+      (alpacaMarketDataCircuit.getStats as jest.Mock).mockReturnValue({ ...mockMarketDataStats, state: 'CLOSED' });
+
+      const request = createMockRequest('http://localhost/api/health?detail=true');
+      const response = await GET(request);
+      const data = await response.json();
+
+      const cbCheck = data.data.checks.find((c: { name: string }) => c.name === 'circuit_breakers');
+      expect(cbCheck.status).toBe('warn');
+      expect(cbCheck.message).toContain('HALF_OPEN');
+    });
+
+    it('should fail when circuit breaker is OPEN', async () => {
+      (authenticateRequest as jest.Mock).mockReturnValue({ authenticated: true, clientId: 'test' });
+      (alpacaTradingCircuit.getStats as jest.Mock).mockReturnValue({ ...mockTradingStats, state: 'OPEN' });
+      (alpacaMarketDataCircuit.getStats as jest.Mock).mockReturnValue({ ...mockMarketDataStats, state: 'CLOSED' });
+
+      const request = createMockRequest('http://localhost/api/health?detail=true');
+      const response = await GET(request);
+      const data = await response.json();
+
+      const cbCheck = data.data.checks.find((c: { name: string }) => c.name === 'circuit_breakers');
+      expect(cbCheck.status).toBe('fail');
+      expect(data.data.status).toBe('degraded');
+    });
+
+    it('should degrade when both circuit breakers OPEN', async () => {
+      (authenticateRequest as jest.Mock).mockReturnValue({ authenticated: true, clientId: 'test' });
+      (alpacaTradingCircuit.getStats as jest.Mock).mockReturnValue({ ...mockTradingStats, state: 'OPEN' });
+      (alpacaMarketDataCircuit.getStats as jest.Mock).mockReturnValue({ ...mockMarketDataStats, state: 'OPEN' });
+
+      const request = createMockRequest('http://localhost/api/health?detail=true');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(data.data.status).toBe('degraded');
+      const cbCheck = data.data.checks.find((c: { name: string }) => c.name === 'circuit_breakers');
+      expect(cbCheck.message).toContain('Trading: OPEN');
+      expect(cbCheck.message).toContain('Market Data: OPEN');
     });
 
     it('should return 401 when detail requested without auth', async () => {

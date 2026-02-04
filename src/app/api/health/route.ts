@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { apiSuccess } from '@/lib/api-helpers';
 import { authenticateRequest } from '@/lib/api-auth';
+import { alpacaTradingCircuit, alpacaMarketDataCircuit } from '@/lib/circuit-breaker';
 
 /**
  * GET /api/health
@@ -74,6 +75,35 @@ export async function GET(request: NextRequest) {
       message: 'Missing API credentials',
     });
     overallStatus = 'unhealthy';
+  }
+
+  // 2b. Circuit breaker status
+  const tradingCB = alpacaTradingCircuit.getStats();
+  const marketDataCB = alpacaMarketDataCircuit.getStats();
+
+  const tradingCircuitOk = tradingCB.state === 'CLOSED';
+  const marketDataCircuitOk = marketDataCB.state === 'CLOSED';
+
+  if (tradingCircuitOk && marketDataCircuitOk) {
+    checks.push({
+      name: 'circuit_breakers',
+      status: 'pass',
+      message: `Trading: ${tradingCB.state}, Market Data: ${marketDataCB.state}`,
+    });
+  } else {
+    const openCircuits: string[] = [];
+    if (!tradingCircuitOk) openCircuits.push(`Trading: ${tradingCB.state}`);
+    if (!marketDataCircuitOk) openCircuits.push(`Market Data: ${marketDataCB.state}`);
+
+    checks.push({
+      name: 'circuit_breakers',
+      status: tradingCB.state === 'OPEN' || marketDataCB.state === 'OPEN' ? 'fail' : 'warn',
+      message: openCircuits.join(', '),
+    });
+
+    if (tradingCB.state === 'OPEN' || marketDataCB.state === 'OPEN') {
+      overallStatus = overallStatus === 'healthy' ? 'degraded' : overallStatus;
+    }
   }
 
   // 3. Memory usage check
