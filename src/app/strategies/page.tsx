@@ -115,6 +115,28 @@ export default function StrategiesPage() {
     setShowForm(false);
   };
 
+  const handleExecute = async (id: string) => {
+    try {
+      setError(null);
+      const res = await fetch(`/api/strategies/${id}/execute`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (json.success) {
+        const { summary } = json.data;
+        setError(null);
+        alert(
+          `Executed: ${summary.executed} trades, ${summary.skipped} skipped out of ${summary.total} signals`
+        );
+        fetchStrategies();
+      } else {
+        setError(json.error || "Execution failed");
+      }
+    } catch {
+      setError("Failed to execute strategy");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -176,6 +198,7 @@ export default function StrategiesPage() {
               onToggle={handleToggle}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onExecute={handleExecute}
             />
           ))}
         </div>

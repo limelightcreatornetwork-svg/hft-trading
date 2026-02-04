@@ -65,7 +65,7 @@ const defaultStrategies: Strategy[] = [
 
 export default function StrategyPage() {
   const [strategies, setStrategies] = useState<Strategy[]>(defaultStrategies);
-  // TODO: Implement strategy editing - state reserved for future use
+  // Strategy editing is implemented in /strategies page (see src/app/strategies/page.tsx)
   const [_editingStrategy, _setEditingStrategy] = useState<Strategy | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
 

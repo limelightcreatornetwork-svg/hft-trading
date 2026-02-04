@@ -41,11 +41,20 @@ export default function StrategyForm({
   const [allocatedCapital, setAllocatedCapital] = useState(
     initial?.allocatedCapital || 10000
   );
-  const [maxPositionSize, setMaxPositionSize] = useState(1000);
-  const [riskPerTrade, setRiskPerTrade] = useState(0.02);
-  const [stopLoss, setStopLoss] = useState(2);
-  const [takeProfit, setTakeProfit] = useState(4);
-  const [trailingStop, setTrailingStop] = useState(1.5);
+  const [maxPositionSize, setMaxPositionSize] = useState(
+    initial?.maxPositionSize || 1000
+  );
+  const [riskPerTrade, setRiskPerTrade] = useState(
+    initial?.riskPerTrade || 0.02
+  );
+  const initialExit = initial?.exitConditions as
+    | { stopLoss?: number; takeProfit?: number; trailingStop?: number }
+    | undefined;
+  const [stopLoss, setStopLoss] = useState(initialExit?.stopLoss ?? 2);
+  const [takeProfit, setTakeProfit] = useState(initialExit?.takeProfit ?? 4);
+  const [trailingStop, setTrailingStop] = useState(
+    initialExit?.trailingStop ?? 1.5
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

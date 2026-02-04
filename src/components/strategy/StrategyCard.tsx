@@ -13,6 +13,12 @@ export interface StrategyData {
   symbols: string[];
   enabled: boolean;
   allocatedCapital: number;
+  maxPositionSize: number;
+  riskPerTrade: number;
+  entryConditions: Record<string, unknown>;
+  exitConditions: Record<string, unknown>;
+  positionSizing: Record<string, unknown>;
+  riskParams: Record<string, unknown>;
   totalPnl: number;
   totalTrades: number;
   winningTrades: number;
@@ -24,6 +30,7 @@ interface StrategyCardProps {
   onToggle: (id: string) => void;
   onEdit: (strategy: StrategyData) => void;
   onDelete: (id: string) => void;
+  onExecute: (id: string) => void;
 }
 
 const typeColors: Record<string, string> = {
@@ -38,6 +45,7 @@ export default function StrategyCard({
   onToggle,
   onEdit,
   onDelete,
+  onExecute,
 }: StrategyCardProps) {
   const winRate =
     strategy.totalTrades > 0
@@ -105,6 +113,14 @@ export default function StrategyCard({
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onExecute(strategy.id)}
+            disabled={!strategy.enabled}
+          >
+            Execute
+          </Button>
           <Button
             variant="outline"
             size="sm"
