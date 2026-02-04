@@ -181,6 +181,8 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Automation test coverage: 24% → 79% (+27 tests) | 63 | 2026-02-04 |
 | Strategy API route tests: all 8 endpoints (+26 tests) | 64 | 2026-02-04 |
 | Automation API route tests: rules, run, trailing, scaled (+44 tests) | 65 | 2026-02-04 |
+| Automation alerts, monitor, order-queue API tests (+52 tests) | 66 | 2026-02-04 |
+| Dynamic routes + utility endpoint tests: position, trailing-stop/[id], scaled-exits/[id], alerts/check, stats, portfolio (+38 tests) | 67 | 2026-02-04 |
 
 ---
 
@@ -365,13 +367,13 @@ Added a complete risk management system with 5 integrated components:
 ## Notes
 
 ### Code Quality Metrics (Updated 2026-02-04)
-- **Test Coverage**: 1389 tests across 50 test suites
+- **Test Coverage**: 1479 tests across 52 test suites
 - **Lint Status**: 0 errors, 0 warnings
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on all endpoints
 - **Observability**: Structured JSON logging + audit trail + health checks
 - **Error Handling**: Error boundaries + apiHandler pattern on all routes
-- **Recent Additions**: Strategy + automation API route tests (70 new tests), apiHandler migration, structured logger everywhere
+- **Recent Additions**: API route test coverage for all endpoints (160 new tests in cycles 64-67), apiHandler migration, structured logger
 
 ### Architecture
 ```
