@@ -5,6 +5,7 @@
  * enable/disable, and performance tracking.
  */
 
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { createLogger } from './logger';
 
@@ -73,10 +74,10 @@ export async function createStrategy(input: StrategyInput): Promise<StrategyReco
       description: input.description || null,
       type: input.type,
       symbols: input.symbols.map(s => s.toUpperCase()),
-      entryConditions: input.entryConditions,
-      exitConditions: input.exitConditions,
-      positionSizing: input.positionSizing,
-      riskParams: input.riskParams,
+      entryConditions: input.entryConditions as Prisma.InputJsonValue,
+      exitConditions: input.exitConditions as Prisma.InputJsonValue,
+      positionSizing: input.positionSizing as Prisma.InputJsonValue,
+      riskParams: input.riskParams as Prisma.InputJsonValue,
       allocatedCapital: input.allocatedCapital ?? 10000,
       maxPositionSize: input.maxPositionSize ?? 1000,
       riskPerTrade: input.riskPerTrade ?? 0.02,
