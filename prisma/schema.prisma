@@ -277,13 +277,16 @@ model ManagedPosition {
   riskRewardScore   Int?
   marketCondScore   Int?
   timeOfDayScore    Int?
-  
+
+  strategyId    String?
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([symbol])
   @@index([status])
   @@index([enteredAt])
+  @@index([strategyId])
 }
 
 // Alert for managed positions
@@ -321,11 +324,20 @@ model Strategy {
   symbols         String[] @default([])
   isActive        Boolean  @default(false)
   backtestResults Json?    // { returns: %, sharpe: n, winRate: % }
+  allocatedCapital Float   @default(10000)
+  maxPositionSize  Float   @default(1000)
+  riskPerTrade     Float   @default(0.02)
+  enabled          Boolean @default(false)
+  totalPnl         Float   @default(0)
+  totalTrades      Int     @default(0)
+  winningTrades    Int     @default(0)
+  losingTrades     Int     @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([isActive])
   @@index([type])
+  @@index([enabled])
 }
 
 // Watchlist
