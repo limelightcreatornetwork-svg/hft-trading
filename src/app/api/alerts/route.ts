@@ -11,52 +11,39 @@
 
 import { NextRequest } from 'next/server';
 import { getAllAlerts, getPendingAlerts, dismissAlert } from '@/lib/trade-manager';
-import { withAuth } from '@/lib/api-auth';
-import { apiSuccess, apiError } from '@/lib/api-helpers';
+import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
 
-export const GET = withAuth(async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const pendingOnly = searchParams.get('pending') === 'true';
-    const limit = parseInt(searchParams.get('limit') || '50');
+export const GET = apiHandler(async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const pendingOnly = searchParams.get('pending') === 'true';
+  const limit = parseInt(searchParams.get('limit') || '50');
 
-    if (pendingOnly) {
-      const alerts = await getPendingAlerts();
-      return apiSuccess({
-        alerts,
-        count: alerts.length,
-        pendingOnly: true,
-      });
-    }
-
-    const alerts = await getAllAlerts(limit);
+  if (pendingOnly) {
+    const alerts = await getPendingAlerts();
     return apiSuccess({
       alerts,
       count: alerts.length,
-      pendingOnly: false,
+      pendingOnly: true,
     });
-
-  } catch (error) {
-    console.error('Error fetching alerts:', error);
-    return apiError('Failed to fetch alerts');
   }
+
+  const alerts = await getAllAlerts(limit);
+  return apiSuccess({
+    alerts,
+    count: alerts.length,
+    pendingOnly: false,
+  });
 });
 
-export const POST = withAuth(async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { alertId } = body;
+export const POST = apiHandler(async function POST(request: NextRequest) {
+  const body = await request.json();
+  const { alertId } = body;
 
-    if (!alertId || typeof alertId !== 'string') {
-      return apiError('Alert ID is required', 400);
-    }
-
-    await dismissAlert(alertId);
-
-    return apiSuccess({ message: 'Alert dismissed' });
-
-  } catch (error) {
-    console.error('Error dismissing alert:', error);
-    return apiError('Failed to dismiss alert');
+  if (!alertId || typeof alertId !== 'string') {
+    return apiError('Alert ID is required', 400);
   }
+
+  await dismissAlert(alertId);
+
+  return apiSuccess({ message: 'Alert dismissed' });
 });
