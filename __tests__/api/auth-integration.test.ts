@@ -35,12 +35,16 @@ jest.mock('../../src/lib/env', () => ({
 // -----------------------------------------------------------------------
 
 const mockGetRiskConfig = jest.fn();
+const mockGetRiskHeadroom = jest.fn();
+const mockUpdateRiskConfig = jest.fn();
 const mockIsKillSwitchActive = jest.fn();
 const mockActivateKillSwitch = jest.fn();
 const mockDeactivateKillSwitch = jest.fn();
 const mockCheckIntent = jest.fn();
 jest.mock('../../src/lib/risk-engine', () => ({
   getRiskConfig: mockGetRiskConfig,
+  getRiskHeadroom: mockGetRiskHeadroom,
+  updateRiskConfig: mockUpdateRiskConfig,
   isKillSwitchActive: mockIsKillSwitchActive,
   activateKillSwitch: mockActivateKillSwitch,
   deactivateKillSwitch: mockDeactivateKillSwitch,
@@ -100,8 +104,10 @@ jest.mock('../../src/lib/confidence', () => ({
   getSuggestedLevels: mockGetSuggestedLevels,
 }));
 
+const mockLogAudit = jest.fn().mockResolvedValue(undefined);
 jest.mock('../../src/lib/audit-log', () => ({
   audit: jest.fn(),
+  logAudit: mockLogAudit,
 }));
 
 // -----------------------------------------------------------------------
@@ -112,6 +118,7 @@ import { GET as killSwitchGET, POST as killSwitchPOST } from '../../src/app/api/
 import { GET as positionsGET } from '../../src/app/api/positions/route';
 import { GET as ordersGET, POST as ordersPOST, DELETE as ordersDELETE } from '../../src/app/api/orders/route';
 import { GET as tradeGET, POST as tradePOST } from '../../src/app/api/trade/route';
+import { GET as riskGET, PUT as riskPUT } from '../../src/app/api/risk/route';
 
 // -----------------------------------------------------------------------
 // Helpers
@@ -166,6 +173,25 @@ function authenticatedDelete(url: string): NextRequest {
 
 function unauthenticatedDelete(url: string): NextRequest {
   return new NextRequest(url, { method: 'DELETE' });
+}
+
+function authenticatedPut(url: string, body: unknown): NextRequest {
+  return new NextRequest(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${TEST_API_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function unauthenticatedPut(url: string, body: unknown): NextRequest {
+  return new NextRequest(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 // -----------------------------------------------------------------------
@@ -768,6 +794,140 @@ describe('API Authentication Integration', () => {
       expect(mockCreateManagedPosition).toHaveBeenCalledWith(
         expect.objectContaining({ symbol: 'NVDA' })
       );
+    });
+  });
+
+  // =====================================================================
+  // Risk – GET / PUT
+  // =====================================================================
+  describe('GET /api/risk', () => {
+    const mockConfig = {
+      maxPositionSize: 100,
+      maxOrderSize: 50,
+      maxDailyLoss: 500,
+      tradingEnabled: true,
+      allowedSymbols: [],
+    };
+
+    const mockHeadroom = {
+      tradingEnabled: true,
+      dailyLossUsed: 100,
+      dailyLossRemaining: 400,
+      positionsUsed: 3,
+      positionsRemaining: 7,
+    };
+
+    beforeEach(() => {
+      mockGetRiskConfig.mockResolvedValue(mockConfig);
+      mockGetRiskHeadroom.mockResolvedValue(mockHeadroom);
+    });
+
+    it('returns 401 without auth header', async () => {
+      const req = unauthenticatedGet('http://localhost:3000/api/risk');
+      const res = await riskGET(req);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns risk config and headroom with valid auth', async () => {
+      const req = authenticatedGet('http://localhost:3000/api/risk');
+      const res = await riskGET(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.data.config).toEqual(mockConfig);
+      expect(body.data.headroom).toEqual(mockHeadroom);
+      expect(body.data.status).toBe('ACTIVE');
+    });
+
+    it('reports DISABLED status when trading is off', async () => {
+      mockGetRiskHeadroom.mockResolvedValue({ ...mockHeadroom, tradingEnabled: false });
+
+      const req = authenticatedGet('http://localhost:3000/api/risk');
+      const res = await riskGET(req);
+      const body = await res.json();
+
+      expect(body.data.status).toBe('DISABLED');
+    });
+  });
+
+  describe('PUT /api/risk', () => {
+    beforeEach(() => {
+      mockUpdateRiskConfig.mockResolvedValue({
+        maxPositionSize: 200,
+        maxOrderSize: 50,
+        maxDailyLoss: 500,
+        tradingEnabled: true,
+      });
+    });
+
+    it('returns 401 without auth header', async () => {
+      const req = unauthenticatedPut('http://localhost:3000/api/risk', {
+        maxPositionSize: 200,
+      });
+      const res = await riskPUT(req);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('updates risk config with valid auth', async () => {
+      const req = authenticatedPut('http://localhost:3000/api/risk', {
+        maxPositionSize: 200,
+      });
+      const res = await riskPUT(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(mockUpdateRiskConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ maxPositionSize: 200 })
+      );
+    });
+
+    it('logs audit trail on config change', async () => {
+      const req = authenticatedPut('http://localhost:3000/api/risk', {
+        tradingEnabled: false,
+      });
+      await riskPUT(req);
+
+      expect(mockLogAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CONFIG_CHANGED',
+          details: expect.objectContaining({
+            configType: 'risk',
+          }),
+        })
+      );
+    });
+
+    it('rejects invalid maxPositionSize', async () => {
+      const req = authenticatedPut('http://localhost:3000/api/risk', {
+        maxPositionSize: -5,
+      });
+      const res = await riskPUT(req);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects non-array allowedSymbols', async () => {
+      const req = authenticatedPut('http://localhost:3000/api/risk', {
+        allowedSymbols: 'AAPL',
+      });
+      const res = await riskPUT(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toContain('array');
+    });
+
+    it('rejects non-boolean tradingEnabled', async () => {
+      const req = authenticatedPut('http://localhost:3000/api/risk', {
+        tradingEnabled: 'yes',
+      });
+      const res = await riskPUT(req);
+
+      expect(res.status).toBe(400);
     });
   });
 });
