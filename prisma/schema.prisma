@@ -35,6 +35,8 @@ model RiskCheck {
   passed    Boolean
   details   String?
   createdAt DateTime @default(now())
+
+  @@index([intentId])
 }
 
 // Orders submitted to broker
@@ -69,6 +71,8 @@ model Fill {
   price     Float
   timestamp DateTime
   createdAt DateTime @default(now())
+
+  @@index([orderId])
 }
 
 // Current positions
@@ -114,6 +118,9 @@ model OptionsContract {
   createdAt       DateTime @default(now())
   positions       OptionsPosition[]
   orders          OptionsOrder[]
+
+  @@index([underlying])
+  @@index([expiration])
 }
 
 // Options Intent - what the strategy wants to do with options
@@ -147,6 +154,8 @@ model OptionsRiskCheck {
   passed    Boolean
   details   String?
   createdAt DateTime       @default(now())
+
+  @@index([intentId])
 }
 
 // Options Orders
@@ -170,6 +179,8 @@ model OptionsOrder {
 
   @@index([status])
   @@index([createdAt])
+  @@index([intentId])
+  @@index([contractId])
 }
 
 // Options Fills
@@ -181,6 +192,8 @@ model OptionsFill {
   price     Float
   timestamp DateTime
   createdAt DateTime     @default(now())
+
+  @@index([orderId])
 }
 
 // Options Positions with Greeks
@@ -216,6 +229,9 @@ model OptionsGreeksSnapshot {
   impliedVol  Float
   underlyingPrice Float
   timestamp   DateTime        @default(now())
+
+  @@index([positionId])
+  @@index([timestamp])
 }
 
 // Portfolio-level Greeks Summary
@@ -226,6 +242,8 @@ model PortfolioGreeks {
   netTheta    Float
   netVega     Float
   timestamp   DateTime @default(now())
+
+  @@index([timestamp])
 }
 
 // ============================================
@@ -440,6 +458,7 @@ model AutomationExecution {
   createdAt     DateTime @default(now())
 
   @@index([ruleId])
+  @@index([orderStatus])
   @@index([createdAt])
 }
 
