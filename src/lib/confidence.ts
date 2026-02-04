@@ -8,7 +8,7 @@
  * - Time of day (avoid first/last 15 min)
  */
 
-import { getRegimeDetector, detectRegimeCached, RegimeType } from './regime';
+import { detectRegimeCached, RegimeType } from './regime';
 import {
   POSITION_SIZING as POSITION_SIZING_CONFIG,
   CONFIDENCE_CONFIG,

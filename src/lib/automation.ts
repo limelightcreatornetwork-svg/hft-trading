@@ -10,7 +10,7 @@
  */
 
 import { prisma } from './db';
-import { submitOrder, getLatestQuote, getPositions, cancelOrder, AlpacaPosition } from './alpaca';
+import { submitOrder, getLatestQuote, getPositions, AlpacaPosition } from './alpaca';
 
 // Rule types
 export type RuleType = 'LIMIT_ORDER' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'OCO' | 'TRAILING_STOP';
@@ -705,7 +705,7 @@ async function executeRule(
  */
 function calculateTriggerPrice(
   rule: { triggerType: string; triggerValue: number; entryPrice: number | null },
-  currentPrice?: number
+  _currentPrice?: number
 ): number | undefined {
   switch (rule.triggerType) {
     case 'PRICE_ABOVE':
