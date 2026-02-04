@@ -1,5 +1,6 @@
 import Alpaca from '@alpacahq/alpaca-trade-api';
 import { alpacaConfig } from './env';
+import { alpacaTradingCircuit, alpacaMarketDataCircuit } from './circuit-breaker';
 
 // Initialize Alpaca client with validated environment variables
 const alpaca = new Alpaca({
@@ -111,33 +112,27 @@ export interface OrderRequest {
  * Get account information
  */
 export async function getAccount(): Promise<AlpacaAccount> {
-  try {
+  return alpacaMarketDataCircuit.execute(async () => {
     const account = await alpaca.getAccount();
     return account as AlpacaAccount;
-  } catch (error) {
-    console.error('Error fetching account:', error);
-    throw error;
-  }
+  });
 }
 
 /**
  * Get all positions
  */
 export async function getPositions(): Promise<AlpacaPosition[]> {
-  try {
+  return alpacaMarketDataCircuit.execute(async () => {
     const positions = await alpaca.getPositions();
     return positions as AlpacaPosition[];
-  } catch (error) {
-    console.error('Error fetching positions:', error);
-    throw error;
-  }
+  });
 }
 
 /**
  * Get all open orders
  */
 export async function getOrders(status: 'open' | 'closed' | 'all' = 'open'): Promise<AlpacaOrder[]> {
-  try {
+  return alpacaTradingCircuit.execute(async () => {
     const orders = await alpaca.getOrders({
       status,
       limit: 100,
@@ -148,17 +143,14 @@ export async function getOrders(status: 'open' | 'closed' | 'all' = 'open'): Pro
       symbols: undefined,
     } as Parameters<typeof alpaca.getOrders>[0]);
     return orders as AlpacaOrder[];
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    throw error;
-  }
+  });
 }
 
 /**
  * Submit a new order
  */
 export async function submitOrder(order: OrderRequest): Promise<AlpacaOrder> {
-  try {
+  return alpacaTradingCircuit.execute(async () => {
     const submittedOrder = await alpaca.createOrder({
       symbol: order.symbol,
       qty: order.qty,
@@ -171,43 +163,34 @@ export async function submitOrder(order: OrderRequest): Promise<AlpacaOrder> {
       client_order_id: order.client_order_id,
     });
     return submittedOrder as AlpacaOrder;
-  } catch (error) {
-    console.error('Error submitting order:', error);
-    throw error;
-  }
+  });
 }
 
 /**
  * Cancel an order by ID
  */
 export async function cancelOrder(orderId: string): Promise<boolean> {
-  try {
+  return alpacaTradingCircuit.execute(async () => {
     await alpaca.cancelOrder(orderId);
     return true;
-  } catch (error) {
-    console.error('Error canceling order:', error);
-    throw error;
-  }
+  });
 }
 
 /**
  * Cancel all open orders
  */
 export async function cancelAllOrders(): Promise<{ cancelled: number }> {
-  try {
+  return alpacaTradingCircuit.execute(async () => {
     const orders = await alpaca.cancelAllOrders();
     return { cancelled: Array.isArray(orders) ? orders.length : 0 };
-  } catch (error) {
-    console.error('Error canceling all orders:', error);
-    throw error;
-  }
+  });
 }
 
 /**
  * Get latest quote for a symbol
  */
 export async function getLatestQuote(symbol: string): Promise<{ bid: number; ask: number; last: number }> {
-  try {
+  return alpacaMarketDataCircuit.execute(async () => {
     const quote = await alpaca.getLatestQuote(symbol);
     const bidPrice = quote.BidPrice ?? 0;
     const askPrice = quote.AskPrice ?? 0;
@@ -216,10 +199,7 @@ export async function getLatestQuote(symbol: string): Promise<{ bid: number; ask
       ask: typeof askPrice === 'number' ? askPrice : parseFloat(String(askPrice)),
       last: typeof askPrice === 'number' ? askPrice : parseFloat(String(askPrice)),
     };
-  } catch (error) {
-    console.error('Error fetching quote:', error);
-    throw error;
-  }
+  });
 }
 
 /**
@@ -232,14 +212,11 @@ export async function getPortfolioHistory(params: {
   date_end?: Date;
   extended_hours?: boolean;
 } = {}): Promise<AlpacaPortfolioHistory> {
-  try {
+  return alpacaMarketDataCircuit.execute(async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Alpaca SDK method not in type definitions
     const history = await (alpaca as any).getPortfolioHistory(params);
     return history as AlpacaPortfolioHistory;
-  } catch (error) {
-    console.error('Error fetching portfolio history:', error);
-    throw error;
-  }
+  });
 }
 
 /**
@@ -254,14 +231,11 @@ export async function getAccountActivities(params: {
   pageSize?: number;
   pageToken?: string;
 } = {}): Promise<AlpacaAccountActivity[]> {
-  try {
+  return alpacaMarketDataCircuit.execute(async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Alpaca SDK method not in type definitions
     const activities = await (alpaca as any).getAccountActivities(params);
     return activities as AlpacaAccountActivity[];
-  } catch (error) {
-    console.error('Error fetching account activities:', error);
-    throw error;
-  }
+  });
 }
 
 /**
@@ -269,10 +243,11 @@ export async function getAccountActivities(params: {
  */
 export async function isMarketOpen(): Promise<boolean> {
   try {
-    const clock = await alpaca.getClock();
-    return clock.is_open;
-  } catch (error) {
-    console.error('Error checking market status:', error);
+    return await alpacaMarketDataCircuit.execute(async () => {
+      const clock = await alpaca.getClock();
+      return clock.is_open;
+    });
+  } catch {
     return false;
   }
 }
