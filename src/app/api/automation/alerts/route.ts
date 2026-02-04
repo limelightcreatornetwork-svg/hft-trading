@@ -7,6 +7,7 @@
 
 import { NextRequest } from 'next/server';
 import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
+import { parseIntParam } from '@/lib/validation';
 import {
   createPriceAlert,
   createPnLAlert,
@@ -26,7 +27,7 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
   const type = searchParams.get('type'); // 'price', 'pnl', 'volume', or all
   const symbol = searchParams.get('symbol');
   const history = searchParams.get('history') === 'true';
-  const limit = parseInt(searchParams.get('limit') || '50');
+  const limit = parseIntParam(searchParams.get('limit'), 50);
 
   if (history) {
     const alerts = await getAlertHistory({

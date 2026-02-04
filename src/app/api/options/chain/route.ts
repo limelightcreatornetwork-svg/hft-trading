@@ -4,6 +4,7 @@ import {
   getOptionsSnapshots,
 } from '@/lib/alpaca-options';
 import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
+import { parseIntParam } from '@/lib/validation';
 
 export interface OptionsChainEntry {
   contract: {
@@ -36,7 +37,7 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
   const type = searchParams.get('type') as 'call' | 'put' | null;
   const minStrike = searchParams.get('minStrike');
   const maxStrike = searchParams.get('maxStrike');
-  const limit = parseInt(searchParams.get('limit') || '50');
+  const limit = parseIntParam(searchParams.get('limit'), 50);
 
   if (!symbol) {
     return apiError('Symbol is required', 400);

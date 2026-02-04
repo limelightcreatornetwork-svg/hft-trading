@@ -11,6 +11,7 @@ import {
   validateSide,
   validateOrderType,
   validateTradeRequest,
+  parseIntParam,
 } from '../../src/lib/validation';
 
 describe('Validation Utilities', () => {
@@ -265,6 +266,36 @@ describe('Validation Utilities', () => {
     it('should reject non-object body', () => {
       const result = validateTradeRequest('invalid');
       expect(result.valid).toBe(false);
+    });
+  });
+
+  describe('parseIntParam', () => {
+    it('should return default for null', () => {
+      expect(parseIntParam(null, 50)).toBe(50);
+    });
+
+    it('should return default for empty string', () => {
+      expect(parseIntParam('', 50)).toBe(50);
+    });
+
+    it('should return default for non-numeric string', () => {
+      expect(parseIntParam('abc', 50)).toBe(50);
+    });
+
+    it('should parse valid integer string', () => {
+      expect(parseIntParam('100', 50)).toBe(100);
+    });
+
+    it('should parse zero', () => {
+      expect(parseIntParam('0', 50)).toBe(0);
+    });
+
+    it('should parse negative numbers', () => {
+      expect(parseIntParam('-5', 50)).toBe(-5);
+    });
+
+    it('should truncate floats to integers', () => {
+      expect(parseIntParam('3.14', 50)).toBe(3);
     });
   });
 });

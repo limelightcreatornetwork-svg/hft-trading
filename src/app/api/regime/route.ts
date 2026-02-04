@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getRegimeDetector, AlpacaRegimeResult } from '@/lib/regime';
 import { apiHandler, apiSuccess } from '@/lib/api-helpers';
+import { parseIntParam } from '@/lib/validation';
 import { createLogger, serializeError } from '@/lib/logger';
 
 const log = createLogger('api:regime');
@@ -31,7 +32,7 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol') || 'SPY';
   const historyMode = searchParams.get('history') === 'true';
-  const historyLimit = parseInt(searchParams.get('limit') || '100', 10);
+  const historyLimit = parseIntParam(searchParams.get('limit'), 100);
 
   // If requesting history, return stored data
   if (historyMode) {

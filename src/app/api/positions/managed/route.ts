@@ -18,11 +18,12 @@ import {
   getTradingStats,
 } from '@/lib/trade-manager';
 import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
+import { parseIntParam } from '@/lib/validation';
 
 export const GET = apiHandler(async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') || 'active';
-  const limit = parseInt(searchParams.get('limit') || '50');
+  const limit = parseIntParam(searchParams.get('limit'), 50);
   const includeStats = searchParams.get('stats') === 'true';
 
   let positions;

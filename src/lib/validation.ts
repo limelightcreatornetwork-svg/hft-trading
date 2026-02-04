@@ -136,6 +136,16 @@ export function validateOrderType(value: unknown): ValidationResult<'market' | '
 }
 
 /**
+ * Parse an integer from a query string parameter with a safe default.
+ * Returns the default if the value is null, empty, or not a valid integer.
+ */
+export function parseIntParam(value: string | null, defaultValue: number): number {
+  if (value === null || value === '') return defaultValue;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? defaultValue : parsed;
+}
+
+/**
  * Validate trade request body
  */
 export interface ValidatedTradeRequest {

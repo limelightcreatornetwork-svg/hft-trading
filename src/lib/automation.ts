@@ -336,8 +336,8 @@ export async function getActiveRules(symbol?: string): Promise<AutomationRuleWit
     const distanceToTrigger = currentPrice && triggerPrice 
       ? Math.abs(currentPrice - triggerPrice)
       : undefined;
-    const distanceToTriggerPct = currentPrice && triggerPrice
-      ? (distanceToTrigger! / currentPrice) * 100
+    const distanceToTriggerPct = currentPrice && triggerPrice && distanceToTrigger !== undefined
+      ? (distanceToTrigger / currentPrice) * 100
       : undefined;
 
     return {

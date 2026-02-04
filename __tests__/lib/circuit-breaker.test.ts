@@ -137,7 +137,7 @@ describe('CircuitBreaker', () => {
     it('CircuitOpenError has useful properties', async () => {
       try {
         await breaker.execute(() => Promise.resolve('nope'));
-        fail('should have thrown');
+        throw new Error('should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(CircuitOpenError);
         const err = error as CircuitOpenError;

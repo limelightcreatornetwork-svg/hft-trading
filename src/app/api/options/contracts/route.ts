@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getOptionContract, getOptionsContracts } from '@/lib/alpaca-options';
 import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
+import { parseIntParam } from '@/lib/validation';
 
 /**
  * GET /api/options/contracts
@@ -13,7 +14,7 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
   const underlying = searchParams.get('underlying');
   const expiration = searchParams.get('expiration');
   const type = searchParams.get('type') as 'call' | 'put' | null;
-  const limit = parseInt(searchParams.get('limit') || '100');
+  const limit = parseIntParam(searchParams.get('limit'), 100);
 
   // If specific contract ID or symbol provided, fetch single contract
   if (contractId || symbol) {
