@@ -51,9 +51,10 @@ export interface AuditEntry {
  * On failure, logs to console as backup (audit data is never silently lost).
  */
 export async function logAudit(entry: AuditEntry): Promise<void> {
-  // Console log for immediate visibility in development
+  // Structured log for immediate visibility in development
   if (process.env.NODE_ENV === 'development') {
-    console.log(`[AUDIT] ${entry.action}`, JSON.stringify(entry, null, 2));
+    const { createLogger } = await import('./logger');
+    createLogger('audit').info(entry.action, { ...entry });
   }
 
   try {
@@ -72,12 +73,11 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
       },
     });
   } catch (error) {
-    // Log to console if database fails - never silently lose audit data
-    console.error('[AUDIT] Failed to write to database:', error);
-    console.log(`[AUDIT-BACKUP] ${entry.action}`, JSON.stringify({
-      ...entry,
-      timestamp: new Date().toISOString(),
-    }));
+    // Structured log if database fails - never silently lose audit data
+    const { createLogger, serializeError } = await import('./logger');
+    const auditLog = createLogger('audit');
+    auditLog.error('Failed to write audit to database', serializeError(error));
+    auditLog.warn('Audit backup entry', { ...entry, timestamp: new Date().toISOString() });
   }
 }
 

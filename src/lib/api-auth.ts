@@ -7,6 +7,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getOptionalEnv } from './env';
+import { createLogger } from './logger';
+
+const log = createLogger('api-auth');
 
 /**
  * API key configuration
@@ -41,10 +44,7 @@ function validateAuthConfig(): void {
 
   // Warn in development if auth is disabled
   if (!API_KEY && process.env.NODE_ENV !== 'production') {
-    console.warn(
-      '[API-AUTH] WARNING: HFT_API_KEY not set - authentication is disabled. ' +
-      'This is acceptable for development but MUST be set in production.'
-    );
+    log.warn('HFT_API_KEY not set - authentication is disabled. Set in production.');
   }
 }
 

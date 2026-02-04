@@ -10,6 +10,9 @@
 
 import { prisma } from './db';
 import { submitOrder, getOrders, cancelOrder, OrderRequest, AlpacaOrder } from './alpaca';
+import { createLogger, serializeError } from './logger';
+
+const log = createLogger('order-queue');
 
 // ============================================
 // TYPES
@@ -456,7 +459,7 @@ class OrderQueueManager {
         }
       }
     } catch (error) {
-      console.error('Failed to sync order statuses:', error);
+      log.error('Failed to sync order statuses', serializeError(error));
     }
     
     return updated;
@@ -503,7 +506,7 @@ class OrderQueueManager {
         },
       });
     } catch (error) {
-      console.error('Failed to log order event:', error);
+      log.error('Failed to log order event', serializeError(error));
     }
   }
   

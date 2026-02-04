@@ -179,11 +179,15 @@ export class CircuitOpenError extends Error {
 // Shared circuit breakers for external services
 // ============================================
 
+import { createLogger } from './logger';
+
+const log = createLogger('circuit-breaker');
+
 export const alpacaTradingCircuit = new CircuitBreaker('alpaca-trading', {
   failureThreshold: 5,
   cooldownMs: 30_000,
   onStateChange: (from, to, name) => {
-    console.warn(`[CIRCUIT-BREAKER] ${name}: ${from} → ${to}`);
+    log.warn('State transition', { circuit: name, from, to });
   },
 });
 
@@ -191,6 +195,6 @@ export const alpacaMarketDataCircuit = new CircuitBreaker('alpaca-market-data', 
   failureThreshold: 3,
   cooldownMs: 15_000,
   onStateChange: (from, to, name) => {
-    console.warn(`[CIRCUIT-BREAKER] ${name}: ${from} → ${to}`);
+    log.warn('State transition', { circuit: name, from, to });
   },
 });

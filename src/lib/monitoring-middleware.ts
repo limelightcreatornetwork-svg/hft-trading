@@ -8,6 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { recordApiLatency, ErrorCategory } from './monitoring';
 import { CircuitOpenError } from './circuit-breaker';
+import { createLogger, serializeError } from './logger';
+
+const log = createLogger('monitoring:middleware');
 
 type RouteHandler = (
   request: NextRequest,
@@ -66,7 +69,7 @@ export function withLatencyTracking(handler: RouteHandler): RouteHandler {
         statusCode: response.status,
         errorCategory: classifyStatusCode(response.status),
       }).catch((err) => {
-        console.error('[MONITORING] Failed to record latency:', err);
+        log.warn('Failed to record latency', serializeError(err));
       });
 
       return response;
@@ -81,7 +84,7 @@ export function withLatencyTracking(handler: RouteHandler): RouteHandler {
         statusCode: 500,
         errorCategory: classifyError(error),
       }).catch((err) => {
-        console.error('[MONITORING] Failed to record latency:', err);
+        log.warn('Failed to record latency', serializeError(err));
       });
 
       throw error;

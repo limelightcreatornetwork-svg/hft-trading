@@ -12,6 +12,9 @@ import { prisma } from './db';
 import alpaca, { submitOrder } from './alpaca';
 import { calculateConfidence, getSuggestedLevels, ConfidenceScore } from './confidence';
 import { checkIntent } from './risk-engine';
+import { createLogger, serializeError } from './logger';
+
+const log = createLogger('trade-manager');
 
 export interface TradeRequest {
   symbol: string;
@@ -231,7 +234,7 @@ export async function getActiveManagedPositions(): Promise<ManagedPositionWithAl
       const quote = await alpaca.getLatestQuote(symbol);
       return { symbol, price: (quote.BidPrice + quote.AskPrice) / 2 || quote.AskPrice || 0 };
     } catch (error) {
-      console.error(`Error fetching price for ${symbol}:`, error);
+      log.error('Error fetching price', { symbol, ...serializeError(error) });
       return { symbol, price: 0 };
     }
   });
@@ -532,7 +535,7 @@ async function closePosition(positionId: string, closePrice: number, reason: str
       time_in_force: 'day',
     });
   } catch (error) {
-    console.error(`Failed to submit close order for ${position.symbol}:`, error);
+    log.error('Failed to submit close order', { symbol: position.symbol, ...serializeError(error) });
     return;
   }
   

@@ -6,6 +6,9 @@
  */
 
 import { prisma } from './db';
+import { createLogger, serializeError } from './logger';
+
+const log = createLogger('monitoring');
 
 // ============================================
 // TYPES
@@ -113,7 +116,7 @@ async function flushLatencyBuffer(): Promise<void> {
       })),
     });
   } catch (error) {
-    console.error('[MONITORING] Failed to flush latency metrics:', error);
+    log.error('Failed to flush latency metrics', serializeError(error));
     // Re-add to buffer if failed (with size limit)
     latencyBuffer = [...entries.slice(-LATENCY_BUFFER_SIZE / 2), ...latencyBuffer].slice(
       -LATENCY_BUFFER_SIZE
@@ -174,7 +177,7 @@ async function flushQueryBuffer(): Promise<void> {
       })),
     });
   } catch (error) {
-    console.error('[MONITORING] Failed to flush query metrics:', error);
+    log.error('Failed to flush query metrics', serializeError(error));
     queryBuffer = [...entries.slice(-QUERY_BUFFER_SIZE / 2), ...queryBuffer].slice(
       -QUERY_BUFFER_SIZE
     );
@@ -286,7 +289,7 @@ export async function updateOrderMetrics(update: OrderExecutionUpdate): Promise<
       update: updateData,
     });
   } catch (error) {
-    console.error('[MONITORING] Failed to update order metrics:', error);
+    log.error('Failed to update order metrics', serializeError(error));
   }
 }
 

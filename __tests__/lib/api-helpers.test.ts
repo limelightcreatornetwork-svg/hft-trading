@@ -271,8 +271,10 @@ describe('apiHandler', () => {
     await wrappedHandler(request);
 
     expect(consoleSpy).toHaveBeenCalledWith(
-      'API error [POST /api/orders]:',
-      error
+      expect.stringContaining('"method":"POST"')
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"pathname":"/api/orders"')
     );
 
     consoleSpy.mockRestore();

@@ -43,7 +43,8 @@ export function getNumericEnv(name: string, defaultValue: number): number {
   if (!value) return defaultValue;
   const parsed = parseFloat(value);
   if (isNaN(parsed)) {
-    console.warn(`Invalid numeric value for ${name}: "${value}". Using default: ${defaultValue}`);
+    const { createLogger } = require('./logger');
+    createLogger('env').warn('Invalid numeric env var', { name, value, defaultValue });
     return defaultValue;
   }
   return parsed;
@@ -62,10 +63,8 @@ export function validateEnvironment(): { valid: boolean; missing: string[] } {
   const missing = required.filter(name => !process.env[name]);
   
   if (missing.length > 0) {
-    console.error(
-      `⚠️ Missing required environment variables: ${missing.join(', ')}\n` +
-      `Please configure these in your .env file.`
-    );
+    const { createLogger } = require('./logger');
+    createLogger('env').error('Missing required environment variables', { missing });
   }
   
   return {

@@ -1,6 +1,9 @@
 import { prisma } from './db';
 import { detectRegimeCached, RegimeType } from './regime';
 import { DEFAULT_RISK_CONFIG } from './constants';
+import { createLogger, serializeError } from './logger';
+
+const log = createLogger('risk-engine');
 
 export interface TradingIntent {
   symbol: string;
@@ -74,7 +77,7 @@ async function initKillSwitchState(): Promise<void> {
 
     killSwitchInitialized = true;
   } catch (error) {
-    console.error('Error initializing kill switch state from DB:', error);
+    log.error('Failed to initialize kill switch state from DB', serializeError(error));
     // On error, keep default state but mark as initialized to avoid retry loop
     killSwitchInitialized = true;
   }
@@ -104,7 +107,7 @@ export async function getRiskConfig(): Promise<RiskConfig> {
       tradingEnabled: config.tradingEnabled,
     };
   } catch (error) {
-    console.error('Error fetching risk config:', error);
+    log.error('Failed to fetch risk config', serializeError(error));
     return DEFAULT_RISK_CONFIG;
   }
 }
@@ -155,7 +158,7 @@ export async function updateRiskConfig(updates: Partial<RiskConfig>): Promise<Ri
       };
     }
   } catch (error) {
-    console.error('Error updating risk config:', error);
+    log.error('Failed to update risk config', serializeError(error));
     throw error;
   }
 }
@@ -245,7 +248,7 @@ export async function checkRegime(symbol: string): Promise<RegimeCheckResult> {
       reason,
     };
   } catch (error) {
-    console.error('Error checking regime:', error);
+    log.error('Error checking regime', serializeError(error));
     // Default to cautious behavior on error
     return {
       regime: 'CHOP',
@@ -306,7 +309,7 @@ export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResul
       currentPositionQty = position.quantity;
     }
   } catch (error) {
-    console.error('Error checking position:', error);
+    log.error('Error checking position', serializeError(error));
   }
 
   const newPositionSize = intent.side === 'buy' 
@@ -347,7 +350,7 @@ export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResul
 
     dailyPL = realizedPL + unrealizedPL;
   } catch (err) {
-    console.error('Error checking daily P&L:', err);
+    log.error('Error checking daily P&L', serializeError(err));
   }
 
   const dailyLossOk = dailyPL > -config.maxDailyLoss;
@@ -437,7 +440,7 @@ export async function getRiskHeadroom(): Promise<{
     const positions = await prisma.position.findMany();
     maxCurrentPosition = Math.max(...positions.map(p => Math.abs(p.quantity)), 0);
   } catch (error) {
-    console.error('Error fetching positions:', error);
+    log.error('Error fetching positions', serializeError(error));
   }
 
   const killSwitchState = await isKillSwitchActive();

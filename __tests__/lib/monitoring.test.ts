@@ -695,8 +695,7 @@ describe('Performance Monitoring System', () => {
       await shutdownMonitoring();
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[MONITORING]'),
-        expect.any(Error)
+        expect.stringContaining('Failed to flush latency metrics')
       );
 
       consoleSpy.mockRestore();

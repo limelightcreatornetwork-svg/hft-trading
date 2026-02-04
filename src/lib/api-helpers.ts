@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from './api-auth';
+import { createLogger, serializeError } from './logger';
+
+const log = createLogger('api');
 
 /**
  * Standard API success response
@@ -28,7 +31,7 @@ export function apiHandler(
     } catch (error) {
       const method = request?.method ?? 'UNKNOWN';
       const pathname = request?.nextUrl?.pathname ?? 'unknown';
-      console.error(`API error [${method} ${pathname}]:`, error);
+      log.error('Unhandled API error', { method, pathname, ...serializeError(error) });
       return apiError('Internal server error');
     }
   });
