@@ -184,6 +184,8 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Automation alerts, monitor, order-queue API tests (+52 tests) | 66 | 2026-02-04 |
 | Dynamic routes + utility endpoint tests: position, trailing-stop/[id], scaled-exits/[id], alerts/check, stats, portfolio (+38 tests) | 67 | 2026-02-04 |
 | Remove non-null assertions in 7 dynamic routes, fix generic catch blocks, add error logging | 68 | 2026-02-04 |
+| Fix remaining non-null assertions in intents, risk, analysis, options/orders routes | 69 | 2026-02-04 |
+| Expand trade-manager.ts test coverage: 16 → 38 tests (+22 edge cases) | 70 | 2026-02-04 |
 
 ---
 
@@ -368,7 +370,7 @@ Added a complete risk management system with 5 integrated components:
 ## Notes
 
 ### Code Quality Metrics (Updated 2026-02-04)
-- **Test Coverage**: 1479 tests across 52 test suites
+- **Test Coverage**: 1505 tests across 52 test suites
 - **Lint Status**: 0 errors, 0 warnings
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on all endpoints

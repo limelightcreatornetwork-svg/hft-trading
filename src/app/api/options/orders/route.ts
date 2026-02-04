@@ -8,6 +8,7 @@ import {
 import { getPositions, getAccount } from '@/lib/alpaca';
 import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
 import { audit } from '@/lib/audit-log';
+import { alpacaConfig } from '@/lib/env';
 import { validateSide, validateOrderType, validatePositiveNumber } from '@/lib/validation';
 
 /**
@@ -143,11 +144,11 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
 
   // Use the Alpaca orders endpoint with asset_class filter
   const response = await fetch(
-    `${process.env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets'}/v2/orders?status=${status}`,
+    `${alpacaConfig.baseUrl}/v2/orders?status=${status}`,
     {
       headers: {
-        'APCA-API-KEY-ID': process.env.ALPACA_API_KEY!,
-        'APCA-API-SECRET-KEY': process.env.ALPACA_API_SECRET!,
+        'APCA-API-KEY-ID': alpacaConfig.apiKey,
+        'APCA-API-SECRET-KEY': alpacaConfig.apiSecret,
       },
     }
   );

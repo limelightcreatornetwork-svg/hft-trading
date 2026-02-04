@@ -32,7 +32,7 @@ export const PUT = apiHandler(async function PUT(request: NextRequest) {
   if (maxPositionSize !== undefined) {
     const result = validatePositiveNumber(maxPositionSize, 'maxPositionSize', { integer: true });
     if (!result.valid) {
-      return apiError(result.error!, 400);
+      return apiError(result.error as string, 400);
     }
     maxPositionSize = result.value;
   }
@@ -40,7 +40,7 @@ export const PUT = apiHandler(async function PUT(request: NextRequest) {
   if (maxOrderSize !== undefined) {
     const result = validatePositiveNumber(maxOrderSize, 'maxOrderSize', { integer: true });
     if (!result.valid) {
-      return apiError(result.error!, 400);
+      return apiError(result.error as string, 400);
     }
     maxOrderSize = result.value;
   }
@@ -48,7 +48,7 @@ export const PUT = apiHandler(async function PUT(request: NextRequest) {
   if (maxDailyLoss !== undefined) {
     const result = validatePositiveNumber(maxDailyLoss, 'maxDailyLoss');
     if (!result.valid) {
-      return apiError(result.error!, 400);
+      return apiError(result.error as string, 400);
     }
     maxDailyLoss = result.value;
   }

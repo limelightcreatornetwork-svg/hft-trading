@@ -30,6 +30,19 @@ jest.mock('../../src/lib/audit-log', () => ({
   },
 }));
 
+jest.mock('../../src/lib/env', () => ({
+  alpacaConfig: {
+    apiKey: 'test-key',
+    apiSecret: 'test-secret',
+    isPaper: true,
+    baseUrl: 'https://paper-api.alpaca.markets',
+  },
+  getOptionalEnv: (name: string, defaultValue: string) => defaultValue,
+  getRequiredEnv: (name: string) => name,
+  getBoolEnv: (_name: string, defaultValue: boolean) => defaultValue,
+  getNumericEnv: (_name: string, defaultValue: number) => defaultValue,
+}));
+
 import { submitOptionsOrder, parseOptionSymbol, canSellCoveredCall, canSellCashSecuredPut } from '../../src/lib/alpaca-options';
 import { getPositions, getAccount } from '../../src/lib/alpaca';
 

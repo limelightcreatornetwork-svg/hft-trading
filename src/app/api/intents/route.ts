@@ -48,22 +48,22 @@ export const POST = apiHandler(async function POST(request: NextRequest) {
   // Validate required fields with proper type checking
   const symbolResult = validateSymbol(body.symbol);
   if (!symbolResult.valid) {
-    return apiError(symbolResult.error!, 400);
+    return apiError(symbolResult.error as string, 400);
   }
 
   const sideResult = validateSide(body.side?.toLowerCase?.());
   if (!sideResult.valid) {
-    return apiError(sideResult.error!, 400);
+    return apiError(sideResult.error as string, 400);
   }
 
   const quantityResult = validatePositiveNumber(body.quantity, 'quantity', { integer: true });
   if (!quantityResult.valid) {
-    return apiError(quantityResult.error!, 400);
+    return apiError(quantityResult.error as string, 400);
   }
 
   const orderTypeResult = validateOrderType(body.orderType?.toLowerCase?.());
   if (!orderTypeResult.valid) {
-    return apiError(orderTypeResult.error!, 400);
+    return apiError(orderTypeResult.error as string, 400);
   }
 
   // Validate limitPrice is required for limit orders

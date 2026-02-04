@@ -59,7 +59,8 @@ function calculateAvgHoldingTime(
     } else if (side === 'SELL') {
       const queue = buys.get(symbol);
       if (queue && queue.length > 0) {
-        const buyTime = queue.shift()!;
+        const buyTime = queue.shift();
+        if (!buyTime) continue;
         const hours = (new Date(time).getTime() - new Date(buyTime).getTime()) / (1000 * 60 * 60);
         if (hours >= 0) holdingHours.push(hours);
       }
