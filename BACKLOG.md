@@ -161,6 +161,11 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Auth integration tests: orders, trade | 43 | 2026-02-04 |
 | Analysis: Sharpe ratio, max drawdown, avg holding time | 44 | 2026-02-04 |
 | Auth integration tests: risk GET/PUT | 45 | 2026-02-04 |
+| Auth for regime detection routes (GET/POST) | 46 | 2026-02-04 |
+| Auth for options chain, contracts, quotes routes | 47 | 2026-02-04 |
+| Auth integration tests: regime + options read routes (+16 tests) | 48 | 2026-02-04 |
+| Circuit breaker for external API resilience (28 tests) | 49 | 2026-02-04 |
+| Circuit breaker integration into all Alpaca API functions | 50 | 2026-02-04 |
 
 ---
 
@@ -345,13 +350,13 @@ Added a complete risk management system with 5 integrated components:
 ## Notes
 
 ### Code Quality Metrics (Updated 2026-02-04)
-- **Test Coverage**: 1055 tests across 38 test suites
+- **Test Coverage**: 1099 tests across 39 test suites
 - **Lint Status**: 0 errors, 0 warnings
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on critical endpoints
 - **Observability**: Audit logging + health checks
 - **Error Handling**: Error boundaries + graceful failures
-- **Recent Additions**: Auth integration tests for 6 critical API routes (+61 tests), analysis metrics implementation
+- **Recent Additions**: Circuit breaker for Alpaca API resilience, auth on all remaining routes, 1099 total tests
 
 ### Architecture
 ```
