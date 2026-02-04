@@ -6,6 +6,9 @@
  */
 
 import { alpacaConfig } from './env';
+import { createLogger, serializeError } from '@/lib/logger';
+
+const log = createLogger('alpaca-ws');
 
 // WebSocket URLs
 const WS_URL_IEX = 'wss://stream.data.alpaca.markets/v2/iex';
@@ -166,7 +169,7 @@ export class AlpacaWebSocket {
       let resolved = false;
 
       this.ws.onopen = () => {
-        console.log('[AlpacaWS] Connected to', url);
+        log.info('Connected', { url });
         this.connectionState = 'authenticating';
         this.authenticate();
       };
@@ -181,7 +184,7 @@ export class AlpacaWebSocket {
       };
 
       this.ws.onerror = (error: Event) => {
-        console.error('[AlpacaWS] WebSocket error:', error);
+        log.error('WebSocket error', serializeError(error));
         if (!resolved) {
           resolved = true;
           reject(new Error('WebSocket connection error'));
@@ -189,7 +192,7 @@ export class AlpacaWebSocket {
       };
 
       this.ws.onclose = (event: CloseEvent) => {
-        console.log('[AlpacaWS] Connection closed:', event.code, event.reason);
+        log.info('Connection closed', { code: event.code, reason: event.reason });
         this.connectionState = 'disconnected';
         this.clearHeartbeat();
 
@@ -344,9 +347,9 @@ export class AlpacaWebSocket {
         switch (message.T) {
           case 'success':
             if (message.msg === 'connected') {
-              console.log('[AlpacaWS] Server acknowledged connection');
+              log.info('Server acknowledged connection');
             } else if (message.msg === 'authenticated') {
-              console.log('[AlpacaWS] Authentication successful');
+              log.info('Authentication successful');
               this.connectionState = 'connected';
               this.reconnectAttempts = 0;
               this.startHeartbeat();
@@ -365,12 +368,12 @@ export class AlpacaWebSocket {
             break;
 
           case 'error':
-            console.error('[AlpacaWS] Error:', message.code, message.msg);
+            log.error('Server error', { code: message.code, msg: message.msg });
             this.handlers.onError?.(message);
             break;
 
           case 'subscription':
-            console.log('[AlpacaWS] Subscription update:', message);
+            log.info('Subscription update', { trades: message.trades, quotes: message.quotes, bars: message.bars });
             this.handlers.onSubscriptionUpdate?.(message);
             break;
 
@@ -388,7 +391,7 @@ export class AlpacaWebSocket {
         }
       }
     } catch (error) {
-      console.error('[AlpacaWS] Failed to parse message:', error);
+      log.error('Failed to parse message', serializeError(error));
     }
   }
 
@@ -396,16 +399,14 @@ export class AlpacaWebSocket {
     this.clearReconnectTimeout();
 
     const delay = this.options.reconnectDelay * Math.pow(2, this.reconnectAttempts);
-    console.log(
-      `[AlpacaWS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.options.maxReconnectAttempts})`
-    );
+    log.info('Reconnecting', { delayMs: delay, attempt: this.reconnectAttempts + 1, maxAttempts: this.options.maxReconnectAttempts });
 
     this.reconnectTimeout = setTimeout(async () => {
       this.reconnectAttempts++;
       try {
         await this.connect();
       } catch (error) {
-        console.error('[AlpacaWS] Reconnection failed:', error);
+        log.error('Reconnection failed', serializeError(error));
       }
     }, delay);
   }
@@ -423,7 +424,7 @@ export class AlpacaWebSocket {
     // Alpaca doesn't require ping/pong, but we can monitor connection health
     this.heartbeatInterval = setInterval(() => {
       if (this.ws && this.ws.readyState !== WebSocket.OPEN) {
-        console.warn('[AlpacaWS] Connection appears dead, reconnecting...');
+        log.warn('Connection appears dead, reconnecting');
         this.ws.close();
       }
     }, 30000);

@@ -6,6 +6,9 @@ import {
 } from '@/lib/regime/index';
 import alpaca from '@/lib/alpaca';
 import { apiHandler, apiSuccess } from '@/lib/api-helpers';
+import { createLogger, serializeError } from '@/lib/logger';
+
+const log = createLogger('api:regime');
 
 // Cache regime results briefly to avoid excessive API calls
 const regimeCache = new Map<string, { result: RegimeResult; timestamp: number }>();
@@ -48,7 +51,7 @@ async function fetchAlpacaBars(symbol: string, limit: number = 50): Promise<Alpa
     }
     return barArray;
   } catch (error) {
-    console.error(`Error fetching bars for ${symbol}:`, error);
+    log.error('Error fetching bars', { symbol, ...serializeError(error) });
     return [];
   }
 }
@@ -115,7 +118,7 @@ async function fetchMarketData(symbol: string): Promise<MarketDataInput> {
 
     // If no bars, fall back to generated data
     if (bars.length === 0) {
-      console.warn(`No bars available for ${symbol}, using fallback data`);
+      log.warn('No bars available, using fallback data', { symbol });
       return generateFallbackData(symbol);
     }
 
@@ -166,7 +169,7 @@ async function fetchMarketData(symbol: string): Promise<MarketDataInput> {
       lastUpdateMs: 100,
     };
   } catch (error) {
-    console.warn(`Error fetching real data for ${symbol}:`, error);
+    log.warn('Error fetching real data, using fallback', { symbol, ...serializeError(error) });
     return generateFallbackData(symbol);
   }
 }

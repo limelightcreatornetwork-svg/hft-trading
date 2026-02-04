@@ -14,6 +14,9 @@ import {
   getAlpacaWebSocket,
   type ConnectionState,
 } from './alpaca-websocket';
+import { createLogger, serializeError } from '@/lib/logger';
+
+const log = createLogger('realtime-prices');
 
 export interface RealTimePrice {
   symbol: string;
@@ -67,15 +70,15 @@ class RealTimePriceService {
         onQuote: this.handleQuote.bind(this),
         onBar: this.handleBar.bind(this),
         onConnect: () => {
-          console.log('[RealTimePrices] Connected');
+          log.info('Connected');
           this.notifyConnectionListeners('connected');
         },
         onDisconnect: (code, reason) => {
-          console.log('[RealTimePrices] Disconnected:', code, reason);
+          log.info('Disconnected', { code, reason });
           this.notifyConnectionListeners('disconnected');
         },
         onError: (error) => {
-          console.error('[RealTimePrices] Error:', error.msg);
+          log.error('WebSocket error', { msg: error.msg });
         },
       },
     });
@@ -84,7 +87,7 @@ class RealTimePriceService {
       await this.ws.connect();
       this.initialized = true;
     } catch (error) {
-      console.error('[RealTimePrices] Failed to initialize:', error);
+      log.error('Failed to initialize', serializeError(error));
       throw error;
     }
   }
@@ -108,7 +111,7 @@ class RealTimePriceService {
    */
   subscribe(symbols: string[]): void {
     if (!this.ws) {
-      console.warn('[RealTimePrices] Service not initialized');
+      log.warn('Service not initialized');
       return;
     }
 
@@ -328,7 +331,7 @@ class RealTimePriceService {
         try {
           callback(price);
         } catch (error) {
-          console.error('[RealTimePrices] Listener error:', error);
+          log.error('Listener error', serializeError(error));
         }
       }
     }
@@ -338,7 +341,7 @@ class RealTimePriceService {
       try {
         callback(price);
       } catch (error) {
-        console.error('[RealTimePrices] Global listener error:', error);
+        log.error('Global listener error', serializeError(error));
       }
     }
   }
@@ -348,7 +351,7 @@ class RealTimePriceService {
       try {
         callback(state);
       } catch (error) {
-        console.error('[RealTimePrices] Connection listener error:', error);
+        log.error('Connection listener error', serializeError(error));
       }
     }
   }

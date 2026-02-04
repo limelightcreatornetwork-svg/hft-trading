@@ -11,6 +11,9 @@
 
 import { prisma } from './db';
 import { submitOrder, getLatestQuote, getPositions, AlpacaPosition } from './alpaca';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('automation');
 
 // Rule types
 export type RuleType = 'LIMIT_ORDER' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'OCO' | 'TRAILING_STOP';
@@ -308,7 +311,7 @@ export async function getActiveRules(symbol?: string): Promise<AutomationRuleWit
     // Handle case where table doesn't exist yet
     const errorMessage = error instanceof Error ? error.message : '';
     if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
-      console.warn('AutomationRule table does not exist, returning empty array');
+      log.warn('AutomationRule table does not exist, returning empty array');
       return [];
     }
     throw error;
@@ -317,13 +320,13 @@ export async function getActiveRules(symbol?: string): Promise<AutomationRuleWit
   // Fetch current prices for all symbols
   const symbols = [...new Set(rules.map(r => r.symbol))];
   const prices: Record<string, number> = {};
-  
+
   await Promise.all(symbols.map(async (sym) => {
     try {
       const quote = await getLatestQuote(sym);
       prices[sym] = (quote.bid + quote.ask) / 2 || quote.last;
     } catch {
-      console.error(`Failed to get quote for ${sym}`);
+      log.error('Failed to get quote', { symbol: sym });
     }
   }));
 
@@ -404,7 +407,7 @@ async function fetchActiveEnabledRules(): Promise<Awaited<ReturnType<typeof pris
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '';
     if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
-      console.warn('AutomationRule table does not exist, returning empty result');
+      log.warn('AutomationRule table does not exist, returning empty result');
       return null;
     }
     throw error;
@@ -805,7 +808,7 @@ export async function getAllRules(limit: number = 100): Promise<AutomationRuleWi
     // Handle case where table doesn't exist yet
     const errorMessage = error instanceof Error ? error.message : '';
     if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
-      console.warn('AutomationRule table does not exist, returning empty array');
+      log.warn('AutomationRule table does not exist, returning empty array');
       return [];
     }
     throw error;

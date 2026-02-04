@@ -1,6 +1,9 @@
 import { neonConfig } from '@neondatabase/serverless';
 import { PrismaNeon } from '@prisma/adapter-neon';
 import { PrismaClient } from '@prisma/client';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('db');
 
 // Configure WebSocket for Neon serverless (only in Node.js environment)
 if (typeof globalThis.WebSocket === 'undefined') {
@@ -37,7 +40,7 @@ function createPrismaClient(): PrismaClient {
     if (isBuildTime) {
       // Return a dummy client during build that will be replaced at runtime
       // This allows the build to complete without a database connection
-      console.warn('[DB] DATABASE_URL not set during build - using placeholder client');
+      log.warn('DATABASE_URL not set during build - using placeholder client');
       // We still need to return something for type safety during build
       // This client will never be used at runtime since createPrismaClient is called again
       return new Proxy({} as PrismaClient, {

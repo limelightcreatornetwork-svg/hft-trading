@@ -14,6 +14,9 @@
 
 import alpaca from '../alpaca';
 import { REGIME_THRESHOLDS, TA_PERIODS } from '../constants';
+import { createLogger, serializeError } from '@/lib/logger';
+
+const log = createLogger('regime');
 
 // ---------------------------------------------------------------------------
 // Types – kept for backward compatibility with consumers that import
@@ -108,7 +111,7 @@ export class AlpacaRegimeDetector {
       }
       return barArray;
     } catch (error) {
-      console.error('Error fetching bars:', error);
+      log.error('Error fetching bars', serializeError(error));
       throw error;
     }
   }
@@ -125,7 +128,7 @@ export class AlpacaRegimeDetector {
         last: (quote.BidPrice + quote.AskPrice) / 2 || quote.AskPrice || 0,
       };
     } catch (error) {
-      console.error('Error fetching quote:', error);
+      log.error('Error fetching quote', serializeError(error));
       return { bid: 0, ask: 0, last: 0 };
     }
   }

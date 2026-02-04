@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import yaml from 'yaml';
+import { createLogger, serializeError } from '@/lib/logger';
+
+const log = createLogger('api:openapi');
 
 // Disable caching - always serve fresh spec
 export const dynamic = 'force-dynamic';
@@ -42,7 +45,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error('Error serving OpenAPI spec:', error);
+    log.error('Error serving OpenAPI spec', serializeError(error));
     return NextResponse.json(
       {
         success: false,

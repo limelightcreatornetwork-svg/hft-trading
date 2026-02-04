@@ -4,6 +4,9 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { createLogger, serializeError } from '@/lib/logger';
+
+const log = createLogger('ui');
 
 export default function Error({
   error,
@@ -13,7 +16,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('Application error:', error);
+    log.error('Application error', serializeError(error));
   }, [error]);
 
   return (

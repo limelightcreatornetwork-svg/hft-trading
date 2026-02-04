@@ -188,8 +188,7 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
         pnl: dailyPnL[idx]?.pnl ?? 0,
       })),
     });
-  } catch (error) {
-    console.error('Analysis API error:', error);
+  } catch {
     return apiError('Failed to load analysis');
   }
 });
