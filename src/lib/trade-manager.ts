@@ -555,6 +555,16 @@ async function closePosition(positionId: string, closePrice: number, reason: str
       pnlPct,
     },
   });
+
+  // Update strategy performance if this position is linked to a strategy
+  if (position.strategyId) {
+    try {
+      const { updateStrategyPerformance } = await import('./strategy-manager');
+      await updateStrategyPerformance(position.strategyId, pnl, pnl > 0);
+    } catch (error) {
+      log.error('Failed to update strategy performance', { strategyId: position.strategyId, ...serializeError(error) });
+    }
+  }
 }
 
 /**
