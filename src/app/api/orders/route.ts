@@ -47,6 +47,10 @@ export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { timeInForce, limitPrice, stopPrice, skipRiskCheck, skipRegimeCheck } = body;
+    const allowRiskBypass =
+      process.env.NODE_ENV !== 'production' || process.env.HFT_ALLOW_RISK_BYPASS === 'true';
+    const shouldSkipRiskCheck = allowRiskBypass && !!skipRiskCheck;
+    const shouldSkipRegimeCheck = allowRiskBypass && !!skipRegimeCheck;
 
     // Validate required fields with proper type checking
     const symbolResult = validateSymbol(body.symbol);
@@ -109,7 +113,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
     const type = typeResult.value;
 
     // Run risk checks unless explicitly skipped
-    if (!skipRiskCheck) {
+    if (!shouldSkipRiskCheck) {
       const riskResult = await checkIntent({
         symbol,
         side,
@@ -117,7 +121,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
         orderType: type,
         limitPrice,
         strategy: 'manual',
-        skipRegimeCheck: skipRegimeCheck || false,
+        skipRegimeCheck: shouldSkipRegimeCheck || false,
       });
 
       if (!riskResult.approved) {

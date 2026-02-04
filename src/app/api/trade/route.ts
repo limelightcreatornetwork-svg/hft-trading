@@ -21,52 +21,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createManagedPosition, TradeRequest } from '@/lib/trade-manager';
 import { calculateConfidence, getSuggestedLevels } from '@/lib/confidence';
+import { validateTradeRequest } from '@/lib/validation';
 import { withAuth } from '@/lib/api-auth';
 
 export const POST = withAuth(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
-    // Validate required fields
-    const { symbol, side, quantity, entryPrice } = body;
-    
-    if (!symbol || typeof symbol !== 'string') {
+    const validated = validateTradeRequest(body);
+    if (!validated.valid) {
       return NextResponse.json(
-        { error: 'Symbol is required and must be a string' },
+        { error: validated.error },
         { status: 400 }
       );
     }
-    
-    if (!['buy', 'sell'].includes(side)) {
-      return NextResponse.json(
-        { error: 'Side must be "buy" or "sell"' },
-        { status: 400 }
-      );
-    }
-    
-    if (!quantity || typeof quantity !== 'number' || quantity <= 0) {
-      return NextResponse.json(
-        { error: 'Quantity must be a positive number' },
-        { status: 400 }
-      );
-    }
-    
-    if (!entryPrice || typeof entryPrice !== 'number' || entryPrice <= 0) {
-      return NextResponse.json(
-        { error: 'Entry price must be a positive number' },
-        { status: 400 }
-      );
-    }
-    
+
+    const allowRiskBypass =
+      process.env.NODE_ENV !== 'production' || process.env.HFT_ALLOW_RISK_BYPASS === 'true';
+    const shouldSkipRiskCheck = allowRiskBypass && !!body.skipRiskCheck;
+    const shouldSkipRegimeCheck = allowRiskBypass && !!body.skipRegimeCheck;
+
+    const { symbol, side, quantity, entryPrice } = validated.value;
+
     const tradeRequest: TradeRequest = {
       symbol: symbol.toUpperCase(),
       side,
       quantity,
       entryPrice,
-      takeProfitPct: body.takeProfitPct,
-      stopLossPct: body.stopLossPct,
-      timeStopHours: body.timeStopHours,
-      trailingStopPct: body.trailingStopPct,
+      takeProfitPct: validated.value.takeProfitPct,
+      stopLossPct: validated.value.stopLossPct,
+      timeStopHours: validated.value.timeStopHours,
+      trailingStopPct: validated.value.trailingStopPct,
+      skipRiskCheck: shouldSkipRiskCheck,
+      skipRegimeCheck: shouldSkipRegimeCheck,
     };
     
     const result = await createManagedPosition(tradeRequest);

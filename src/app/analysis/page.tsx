@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface TradeRecord {
   id: string;
@@ -23,57 +23,75 @@ interface PerformanceMetrics {
   winRate: number;
   avgWin: number;
   avgLoss: number;
-  sharpeRatio: number;
-  maxDrawdown: number;
+  sharpeRatio: number | null;
+  maxDrawdown: number | null;
   tradesCount: number;
   winningTrades: number;
   losingTrades: number;
-  profitFactor: number;
-  avgHoldingTime: string;
+  profitFactor: number | null;
+  avgHoldingTime: string | null;
 }
 
-const demoMetrics: PerformanceMetrics = {
-  totalValue: 12450.32,
-  totalPnl: 2450.32,
-  totalPnlPercent: 24.5,
-  winRate: 62.5,
-  avgWin: 245.80,
-  avgLoss: -128.45,
-  sharpeRatio: 1.85,
-  maxDrawdown: 8.3,
-  tradesCount: 48,
-  winningTrades: 30,
-  losingTrades: 18,
-  profitFactor: 2.1,
-  avgHoldingTime: "2.4 days",
-};
-
-const demoTrades: TradeRecord[] = [
-  { id: "1", symbol: "NVDA", side: "BUY", quantity: 10, entryPrice: 485.20, exitPrice: 512.45, pnl: 272.50, pnlPercent: 5.6, strategy: "Momentum", entryDate: "2024-01-28", exitDate: "2024-01-30" },
-  { id: "2", symbol: "AAPL", side: "BUY", quantity: 20, entryPrice: 188.50, exitPrice: 185.20, pnl: -66.00, pnlPercent: -1.8, strategy: "RSI Reversal", entryDate: "2024-01-27", exitDate: "2024-01-29" },
-  { id: "3", symbol: "TSLA", side: "BUY", quantity: 15, entryPrice: 182.40, exitPrice: 195.80, pnl: 201.00, pnlPercent: 7.3, strategy: "Breakout", entryDate: "2024-01-25", exitDate: "2024-01-28" },
-  { id: "4", symbol: "AMD", side: "BUY", quantity: 25, entryPrice: 165.30, exitPrice: 172.15, pnl: 171.25, pnlPercent: 4.1, strategy: "Momentum", entryDate: "2024-01-24", exitDate: "2024-01-26" },
-  { id: "5", symbol: "MSFT", side: "BUY", quantity: 8, entryPrice: 398.50, exitPrice: 392.20, pnl: -50.40, pnlPercent: -1.6, strategy: "RSI Reversal", entryDate: "2024-01-23", exitDate: "2024-01-25" },
-  { id: "6", symbol: "GOOGL", side: "BUY", quantity: 30, entryPrice: 142.80, exitPrice: 148.50, pnl: 171.00, pnlPercent: 4.0, strategy: "Breakout", entryDate: "2024-01-22", exitDate: "2024-01-24" },
-];
-
-const dailyPnl = [
-  { date: "Jan 22", pnl: 85 },
-  { date: "Jan 23", pnl: -42 },
-  { date: "Jan 24", pnl: 156 },
-  { date: "Jan 25", pnl: 72 },
-  { date: "Jan 26", pnl: 201 },
-  { date: "Jan 27", pnl: -66 },
-  { date: "Jan 28", pnl: 189 },
-  { date: "Jan 29", pnl: 134 },
-  { date: "Jan 30", pnl: 272 },
-];
+interface AnalysisResponse {
+  success: boolean;
+  data: {
+    metrics: PerformanceMetrics;
+    trades: TradeRecord[];
+    dailyPnL: { timestamp: number; pnl: number }[];
+  };
+}
 
 export default function AnalysisPage() {
-  const [metrics] = useState<PerformanceMetrics>(demoMetrics);
-  const [trades] = useState<TradeRecord[]>(demoTrades);
+  const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
+  const [trades, setTrades] = useState<TradeRecord[]>([]);
+  const [dailyPnl, setDailyPnl] = useState<{ date: string; pnl: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<"1W" | "1M" | "3M" | "YTD" | "ALL">("1M");
   const [filterStrategy, setFilterStrategy] = useState<string>("all");
+
+  const alpacaPeriod = useMemo(() => {
+    switch (timeframe) {
+      case "1W":
+        return "1M";
+      case "1M":
+        return "1M";
+      case "3M":
+        return "3M";
+      case "YTD":
+        return "1A";
+      case "ALL":
+        return "all";
+      default:
+        return "1M";
+    }
+  }, [timeframe]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch(`/api/analysis?period=${alpacaPeriod}`);
+        if (!res.ok) throw new Error("Failed to load analysis");
+        const payload: AnalysisResponse = await res.json();
+        if (!payload.success) throw new Error("Failed to load analysis");
+        setMetrics(payload.data.metrics);
+        setTrades(payload.data.trades || []);
+        const pnlSeries = (payload.data.dailyPnL || []).map((d) => ({
+          date: new Date(d.timestamp * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+          pnl: d.pnl,
+        }));
+        setDailyPnl(pnlSeries);
+      } catch (e) {
+        console.error(e);
+        setError("Failed to load analysis from Alpaca");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [alpacaPeriod, timeframe]);
 
   const filteredTrades = filterStrategy === "all" 
     ? trades 
@@ -94,7 +112,15 @@ export default function AnalysisPage() {
     };
   });
 
-  const maxPnl = Math.max(...dailyPnl.map(d => Math.abs(d.pnl)));
+  const maxPnl = dailyPnl.length > 0 ? Math.max(...dailyPnl.map(d => Math.abs(d.pnl))) : 1;
+
+  if (loading) {
+    return <div className="text-gray-400">Loading analysis...</div>;
+  }
+
+  if (error || !metrics) {
+    return <div className="text-red-400">{error || "Failed to load analysis"}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -142,8 +168,8 @@ export default function AnalysisPage() {
         </div>
         <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
           <div className="text-sm text-gray-400 mb-1">Sharpe Ratio</div>
-          <div className="text-2xl font-bold">{metrics.sharpeRatio}</div>
-          <div className="text-sm text-gray-400">Profit Factor: {metrics.profitFactor}</div>
+          <div className="text-2xl font-bold">{metrics.sharpeRatio ?? "—"}</div>
+          <div className="text-sm text-gray-400">Profit Factor: {metrics.profitFactor ?? "—"}</div>
         </div>
       </div>
 
@@ -159,15 +185,15 @@ export default function AnalysisPage() {
         </div>
         <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
           <div className="text-xs text-gray-400 mb-1">Max Drawdown</div>
-          <div className="text-lg font-bold text-red-400">-{metrics.maxDrawdown}%</div>
+          <div className="text-lg font-bold text-red-400">{metrics.maxDrawdown !== null ? `-${metrics.maxDrawdown}%` : "—"}</div>
         </div>
         <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
           <div className="text-xs text-gray-400 mb-1">Avg Holding</div>
-          <div className="text-lg font-bold">{metrics.avgHoldingTime}</div>
+          <div className="text-lg font-bold">{metrics.avgHoldingTime ?? "—"}</div>
         </div>
         <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
           <div className="text-xs text-gray-400 mb-1">Profit Factor</div>
-          <div className="text-lg font-bold">{metrics.profitFactor}x</div>
+          <div className="text-lg font-bold">{metrics.profitFactor !== null ? `${metrics.profitFactor.toFixed(2)}x` : "—"}</div>
         </div>
       </div>
 

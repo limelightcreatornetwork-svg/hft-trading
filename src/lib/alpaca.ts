@@ -73,6 +73,28 @@ export interface AlpacaOrder {
   trail_percent: null;
 }
 
+export interface AlpacaAccountActivity {
+  id: string;
+  activity_type: string;
+  transaction_time: string;
+  type: string;
+  price: string;
+  qty: string;
+  side: string;
+  symbol: string;
+  net_amount?: string;
+  order_id?: string;
+}
+
+export interface AlpacaPortfolioHistory {
+  timestamp: number[];
+  equity: number[];
+  profit_loss: number[];
+  profit_loss_pct: number[];
+  timeframe: string;
+  base_value?: number;
+}
+
 export interface OrderRequest {
   symbol: string;
   qty: number;
@@ -196,6 +218,46 @@ export async function getLatestQuote(symbol: string): Promise<{ bid: number; ask
     };
   } catch (error) {
     console.error('Error fetching quote:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get portfolio history
+ */
+export async function getPortfolioHistory(params: {
+  period?: '1M' | '3M' | '6M' | '1A' | 'all' | 'intraday';
+  timeframe?: '1Min' | '5Min' | '15Min' | '1H' | '1D';
+  date_start?: Date;
+  date_end?: Date;
+  extended_hours?: boolean;
+} = {}): Promise<AlpacaPortfolioHistory> {
+  try {
+    const history = await (alpaca as any).getPortfolioHistory(params);
+    return history as AlpacaPortfolioHistory;
+  } catch (error) {
+    console.error('Error fetching portfolio history:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get account activities (fills, etc.)
+ */
+export async function getAccountActivities(params: {
+  activityTypes?: string | string[];
+  until?: Date;
+  after?: Date;
+  direction?: 'asc' | 'desc';
+  date?: Date;
+  pageSize?: number;
+  pageToken?: string;
+} = {}): Promise<AlpacaAccountActivity[]> {
+  try {
+    const activities = await (alpaca as any).getAccountActivities(params);
+    return activities as AlpacaAccountActivity[];
+  } catch (error) {
+    console.error('Error fetching account activities:', error);
     throw error;
   }
 }

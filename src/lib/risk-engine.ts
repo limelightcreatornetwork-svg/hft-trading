@@ -322,7 +322,7 @@ export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResul
   };
   checks.push(positionCheck);
 
-  // Check 5: Daily loss limit
+  // Check 5: Daily loss limit (realized + unrealized P&L)
   let dailyPL = 0;
   try {
     const todayStart = new Date();
@@ -339,33 +339,23 @@ export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResul
     });
     const realizedPL = closedToday.reduce((sum, p) => sum + (p.pnl ?? 0), 0);
 
-    // Sum unrealized P&L from fills on orders created today
-    const todayFills = await prisma.fill.findMany({
-      where: {
-        createdAt: { gte: todayStart },
-      },
-      select: {
-        quantity: true,
-        price: true,
-        order: { select: { side: true, symbol: true } },
-      },
+    // Sum unrealized P&L from current positions (best-effort, may be stale)
+    const positions = await prisma.position.findMany({
+      select: { unrealizedPL: true },
     });
-    const fillPL = todayFills.reduce((sum, fill) => {
-      const sign = fill.order.side === 'BUY' ? -1 : 1;
-      return sum + sign * fill.quantity * fill.price;
-    }, 0);
+    const unrealizedPL = positions.reduce((sum, p) => sum + (p.unrealizedPL ?? 0), 0);
 
-    dailyPL = realizedPL + fillPL;
+    dailyPL = realizedPL + unrealizedPL;
   } catch (err) {
     console.error('Error checking daily P&L:', err);
   }
 
-  const dailyLossOk = Math.abs(dailyPL) < config.maxDailyLoss;
+  const dailyLossOk = dailyPL > -config.maxDailyLoss;
   const dailyLossCheck = {
     name: 'daily_loss_limit',
     passed: dailyLossOk,
     details: dailyLossOk 
-      ? `Daily P&L ${dailyPL} within limit ±${config.maxDailyLoss}` 
+      ? `Daily P&L ${dailyPL} within loss limit ${config.maxDailyLoss}` 
       : `Daily loss ${dailyPL} exceeds limit ${config.maxDailyLoss}`,
   };
   checks.push(dailyLossCheck);

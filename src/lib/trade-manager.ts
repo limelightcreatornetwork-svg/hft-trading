@@ -9,8 +9,9 @@
  */
 
 import { prisma } from './db';
-import alpaca from './alpaca';
+import alpaca, { submitOrder } from './alpaca';
 import { calculateConfidence, getSuggestedLevels, ConfidenceScore } from './confidence';
+import { checkIntent } from './risk-engine';
 
 export interface TradeRequest {
   symbol: string;
@@ -21,6 +22,8 @@ export interface TradeRequest {
   stopLossPct?: number;     // Override default
   timeStopHours?: number;   // Override default (4 hours)
   trailingStopPct?: number; // Optional trailing stop
+  skipRiskCheck?: boolean;
+  skipRegimeCheck?: boolean;
 }
 
 export interface ManagedPositionWithAlerts {
@@ -109,6 +112,37 @@ export async function createManagedPosition(request: TradeRequest): Promise<Crea
   const takeProfitPct = request.takeProfitPct ?? suggestedLevels.takeProfitPct;
   const stopLossPct = request.stopLossPct ?? suggestedLevels.stopLossPct;
   const timeStopHours = request.timeStopHours ?? DEFAULT_TIME_STOP_HOURS;
+
+  // Run risk checks unless explicitly skipped
+  if (!request.skipRiskCheck) {
+    const riskResult = await checkIntent({
+      symbol: request.symbol.toUpperCase(),
+      side: request.side,
+      quantity: request.quantity,
+      orderType: 'market',
+      limitPrice: undefined,
+      strategy: 'managed',
+      skipRegimeCheck: request.skipRegimeCheck || false,
+    });
+
+    if (!riskResult.approved) {
+      return {
+        position: null,
+        confidence,
+        skipped: true,
+        reason: `Trade rejected by risk engine: ${riskResult.reason || 'Unknown reason'}`,
+      };
+    }
+  }
+
+  // Submit the actual order to broker (market order by default)
+  await submitOrder({
+    symbol: request.symbol.toUpperCase(),
+    qty: request.quantity,
+    side: request.side,
+    type: 'market',
+    time_in_force: 'day',
+  });
   
   // Create the managed position
   const position = await prisma.managedPosition.create({
@@ -461,6 +495,21 @@ async function closePosition(positionId: string, closePrice: number, reason: str
   });
   
   if (!position) return;
+
+  // Submit close order to broker before marking closed in DB
+  try {
+    const closeSide = position.side === 'buy' ? 'sell' : 'buy';
+    await submitOrder({
+      symbol: position.symbol,
+      qty: Math.abs(position.quantity),
+      side: closeSide,
+      type: 'market',
+      time_in_force: 'day',
+    });
+  } catch (error) {
+    console.error(`Failed to submit close order for ${position.symbol}:`, error);
+    return;
+  }
   
   const multiplier = position.side === 'buy' ? 1 : -1;
   const priceDiff = closePrice - position.entryPrice;

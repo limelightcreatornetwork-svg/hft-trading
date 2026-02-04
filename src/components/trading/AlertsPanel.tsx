@@ -34,7 +34,8 @@ export function AlertsPanel({
       const response = await fetch(`/api/alerts?limit=${maxAlerts}`);
       if (!response.ok) throw new Error('Failed to fetch alerts');
       const data = await response.json();
-      setAlerts(data.alerts);
+      const alertsPayload = data?.alerts ?? data?.data?.alerts ?? [];
+      setAlerts(Array.isArray(alertsPayload) ? alertsPayload : []);
       setError(null);
     } catch (err) {
       setError('Failed to load alerts');
@@ -52,7 +53,7 @@ export function AlertsPanel({
         body: JSON.stringify({ alertId }),
       });
       if (response.ok) {
-        setAlerts(alerts.filter(a => a.id !== alertId));
+        setAlerts(prev => prev.filter(a => a.id !== alertId));
       }
     } catch (err) {
       console.error('Failed to dismiss alert:', err);
