@@ -9,6 +9,7 @@ import {
   getExpirationDates,
   canSellCoveredCall,
   canSellCashSecuredPut,
+  getClosingSide,
   OptionContract,
 } from '../../src/lib/alpaca-options';
 
@@ -329,6 +330,16 @@ describe('Alpaca Options Utilities', () => {
 
       expect(result.allowed).toBe(false);
       expect(result.requiredCash).toBe(100000);
+    });
+  });
+
+  describe('getClosingSide', () => {
+    it('should return sell for long positions', () => {
+      expect(getClosingSide('long')).toBe('sell');
+    });
+
+    it('should return buy for short positions', () => {
+      expect(getClosingSide('short')).toBe('buy');
     });
   });
 });

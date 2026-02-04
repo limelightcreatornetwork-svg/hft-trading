@@ -413,3 +413,59 @@ export function canSellCashSecuredPut(
   
   return { allowed: true, requiredCash };
 }
+
+/**
+ * Determine the closing side for an options position
+ * - Long positions close by selling
+ * - Short positions close by buying
+ */
+export function getClosingSide(currentSide: 'long' | 'short'): 'buy' | 'sell' {
+  return currentSide === 'long' ? 'sell' : 'buy';
+}
+
+export interface CloseOptionsPositionParams {
+  symbol: string;
+  quantity: number;
+  currentSide: 'long' | 'short';
+  orderType?: 'market' | 'limit';
+  limitPrice?: number;
+}
+
+/**
+ * Close an options position by submitting an opposing order
+ * Returns the order details for the closing trade
+ */
+export async function closeOptionsPosition(params: CloseOptionsPositionParams): Promise<OptionOrderResponse> {
+  const { symbol, quantity, currentSide, orderType = 'market', limitPrice } = params;
+  
+  // Validate symbol
+  const parsed = parseOptionSymbol(symbol);
+  if (!parsed) {
+    throw new Error(`Invalid option symbol: ${symbol}`);
+  }
+  
+  // Validate quantity
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    throw new Error('Quantity must be a positive integer');
+  }
+  
+  // For limit orders, require a price
+  if (orderType === 'limit' && (limitPrice === undefined || limitPrice <= 0)) {
+    throw new Error('Limit price required for limit orders');
+  }
+  
+  // Determine closing side
+  const closingSide = getClosingSide(currentSide);
+  
+  // Submit the closing order
+  const order = await submitOptionsOrder({
+    symbol,
+    qty: quantity,
+    side: closingSide,
+    type: orderType,
+    time_in_force: 'day',
+    limit_price: limitPrice,
+  });
+  
+  return order;
+}

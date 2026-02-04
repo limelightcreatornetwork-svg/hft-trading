@@ -234,6 +234,8 @@ export function OptionsPositions({ onExercise }: OptionsPositionsProps) {
   const [expandedPosition, setExpandedPosition] = useState<string | null>(null);
   const [showGreeksColumn, setShowGreeksColumn] = useState(true);
   const [sortBy, setSortBy] = useState<'expiry' | 'pnl' | 'delta'>('expiry');
+  const [closingPosition, setClosingPosition] = useState<string | null>(null);
+  const [closeError, setCloseError] = useState<string | null>(null);
 
   const fetchPositions = async () => {
     try {
@@ -306,6 +308,47 @@ export function OptionsPositions({ onExercise }: OptionsPositionsProps) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const closePosition = async (position: OptionPosition) => {
+    if (closingPosition) return; // Prevent double-clicks
+    
+    const confirmed = window.confirm(
+      `Close ${Math.abs(position.quantity)} ${position.underlying} ${position.strike} ${position.optionType} position?\n\n` +
+      `Current Value: $${position.marketValue.toLocaleString()}\n` +
+      `Unrealized P&L: ${position.unrealizedPL >= 0 ? '+' : ''}$${position.unrealizedPL.toFixed(2)}`
+    );
+    
+    if (!confirmed) return;
+    
+    setClosingPosition(position.symbol);
+    setCloseError(null);
+    
+    try {
+      const res = await fetch('/api/options/positions/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: position.symbol,
+          quantity: Math.abs(position.quantity),
+          currentSide: position.side,
+          orderType: 'market',
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to close position');
+      }
+      
+      // Refresh positions after successful close
+      await fetchPositions();
+    } catch (err) {
+      setCloseError(err instanceof Error ? err.message : 'Failed to close position');
+    } finally {
+      setClosingPosition(null);
     }
   };
 
@@ -400,6 +443,20 @@ export function OptionsPositions({ onExercise }: OptionsPositionsProps) {
         {error && (
           <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 text-red-300 rounded-lg text-sm">
             ⚠️ {error}
+          </div>
+        )}
+
+        {closeError && (
+          <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 text-red-300 rounded-lg text-sm flex items-center justify-between">
+            <span>⚠️ Close failed: {closeError}</span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setCloseError(null)}
+              className="text-red-400 hover:text-red-300 h-6 px-2"
+            >
+              ✕
+            </Button>
           </div>
         )}
 
@@ -589,9 +646,10 @@ export function OptionsPositions({ onExercise }: OptionsPositionsProps) {
                                 variant="outline" 
                                 size="sm"
                                 className="text-xs border-gray-600 hover:bg-gray-700"
-                                onClick={() => {/* TODO: Implement close position */}}
+                                disabled={closingPosition === position.symbol}
+                                onClick={() => closePosition(position)}
                               >
-                                Close
+                                {closingPosition === position.symbol ? '⏳' : 'Close'}
                               </Button>
                               {position.side === 'long' && onExercise && (
                                 <Button 
