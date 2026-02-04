@@ -20,6 +20,10 @@ model Intent {
   updatedAt   DateTime @updatedAt
   orders      Order[]
   riskChecks  RiskCheck[]
+
+  @@index([status])
+  @@index([symbol])
+  @@index([createdAt])
 }
 
 // Risk Check Results
@@ -50,6 +54,10 @@ model Order {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   fills         Fill[]
+
+  @@index([status])
+  @@index([symbol])
+  @@index([createdAt])
 }
 
 // Individual fills
@@ -124,6 +132,10 @@ model OptionsIntent {
   updatedAt       DateTime @updatedAt
   orders          OptionsOrder[]
   riskChecks      OptionsRiskCheck[]
+
+  @@index([status])
+  @@index([underlying])
+  @@index([createdAt])
 }
 
 // Options Risk Check Results
@@ -155,6 +167,9 @@ model OptionsOrder {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   fills           OptionsFill[]
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 // Options Fills
@@ -290,6 +305,9 @@ model Strategy {
   backtestResults Json?    // { returns: %, sharpe: n, winRate: % }
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([type])
 }
 
 // Watchlist

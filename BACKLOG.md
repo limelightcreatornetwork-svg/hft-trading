@@ -95,11 +95,11 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 
 ### 13. Add E2E Tests
 - Playwright/Cypress tests
-- **Status**: ⏳ TODO
+- **Status**: ✅ FIXED - 9 Playwright E2E test suites covering dashboard, orders, navigation, etc.
 
 ### 14. Database Indexes Optimization
 - Review query patterns
-- **Status**: ⏳ TODO
+- **Status**: ✅ FIXED - Added indexes to Intent, Order, OptionsIntent, OptionsOrder, Strategy for status, symbol, createdAt queries
 
 ---
 
