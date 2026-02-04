@@ -156,6 +156,11 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Formatters module tests | 38 | 2026-02-04 |
 | API helpers module tests | 39 | 2026-02-04 |
 | Volatility-adjusted regime detection | 40 | 2026-02-04 |
+| Lint cleanup: 38→0 warnings + ESLint _-prefix config | 41 | 2026-02-04 |
+| Auth integration tests: kill-switch, positions | 42 | 2026-02-04 |
+| Auth integration tests: orders, trade | 43 | 2026-02-04 |
+| Analysis: Sharpe ratio, max drawdown, avg holding time | 44 | 2026-02-04 |
+| Auth integration tests: risk GET/PUT | 45 | 2026-02-04 |
 
 ---
 
@@ -340,13 +345,13 @@ Added a complete risk management system with 5 integrated components:
 ## Notes
 
 ### Code Quality Metrics (Updated 2026-02-04)
-- **Test Coverage**: 994 tests across 36 test suites
-- **Lint Status**: 0 errors, 58 warnings (mostly unused vars in tests)
+- **Test Coverage**: 1055 tests across 38 test suites
+- **Lint Status**: 0 errors, 0 warnings
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on critical endpoints
 - **Observability**: Audit logging + health checks
 - **Error Handling**: Error boundaries + graceful failures
-- **Recent Additions**: Volatility-adjusted regime detection (+18 tests)
+- **Recent Additions**: Auth integration tests for 6 critical API routes (+61 tests), analysis metrics implementation
 
 ### Architecture
 ```
