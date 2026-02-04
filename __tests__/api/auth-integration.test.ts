@@ -110,6 +110,24 @@ jest.mock('../../src/lib/audit-log', () => ({
   logAudit: mockLogAudit,
 }));
 
+const mockGetRegimeDetector = jest.fn();
+jest.mock('../../src/lib/regime', () => ({
+  getRegimeDetector: mockGetRegimeDetector,
+  createRegimeDetector: jest.fn(),
+  AlpacaRegimeDetector: jest.fn(),
+  detectRegimeCached: jest.fn(),
+  clearRegimeCache: jest.fn(),
+}));
+
+const mockGetOptionsContracts = jest.fn();
+const mockGetOptionsSnapshots = jest.fn();
+const mockGetOptionContract = jest.fn();
+jest.mock('../../src/lib/alpaca-options', () => ({
+  getOptionsContracts: mockGetOptionsContracts,
+  getOptionsSnapshots: mockGetOptionsSnapshots,
+  getOptionContract: mockGetOptionContract,
+}));
+
 // -----------------------------------------------------------------------
 // Route imports (after all mocks are declared)
 // -----------------------------------------------------------------------
@@ -119,6 +137,10 @@ import { GET as positionsGET } from '../../src/app/api/positions/route';
 import { GET as ordersGET, POST as ordersPOST, DELETE as ordersDELETE } from '../../src/app/api/orders/route';
 import { GET as tradeGET, POST as tradePOST } from '../../src/app/api/trade/route';
 import { GET as riskGET, PUT as riskPUT } from '../../src/app/api/risk/route';
+import { GET as regimeGET, POST as regimePOST } from '../../src/app/api/regime/route';
+import { GET as optionsChainGET } from '../../src/app/api/options/chain/route';
+import { GET as optionsContractsGET } from '../../src/app/api/options/contracts/route';
+import { GET as optionsQuotesGET } from '../../src/app/api/options/quotes/route';
 
 // -----------------------------------------------------------------------
 // Helpers
@@ -928,6 +950,267 @@ describe('API Authentication Integration', () => {
       const res = await riskPUT(req);
 
       expect(res.status).toBe(400);
+    });
+  });
+
+  // =====================================================================
+  // Regime – GET / POST
+  // =====================================================================
+  describe('GET /api/regime', () => {
+    const mockDetector = {
+      detect: jest.fn().mockResolvedValue({
+        symbol: 'SPY',
+        regime: 'bullish',
+        confidence: 0.85,
+        timestamp: '2026-02-04T12:00:00Z',
+      }),
+    };
+
+    beforeEach(() => {
+      mockGetRegimeDetector.mockReturnValue(mockDetector);
+    });
+
+    it('returns 401 without auth header', async () => {
+      const req = unauthenticatedGet('http://localhost:3000/api/regime');
+      const res = await regimeGET(req);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 401 with wrong API key', async () => {
+      const req = wrongKeyGet('http://localhost:3000/api/regime');
+      const res = await regimeGET(req);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns regime data with valid auth', async () => {
+      const req = authenticatedGet('http://localhost:3000/api/regime');
+      const res = await regimeGET(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.regime).toBe('bullish');
+    });
+
+    it('accepts X-API-Key auth', async () => {
+      const req = authenticatedGet('http://localhost:3000/api/regime', 'x-api-key');
+      const res = await regimeGET(req);
+
+      expect(res.status).toBe(200);
+    });
+
+    it('returns history when requested', async () => {
+      const req = authenticatedGet('http://localhost:3000/api/regime?history=true');
+      const res = await regimeGET(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.history).toBeDefined();
+    });
+  });
+
+  describe('POST /api/regime', () => {
+    const mockDetector = {
+      detect: jest.fn().mockResolvedValue({
+        symbol: 'SPY',
+        regime: 'bearish',
+        confidence: 0.72,
+      }),
+    };
+
+    beforeEach(() => {
+      mockGetRegimeDetector.mockReturnValue(mockDetector);
+    });
+
+    it('returns 401 without auth header', async () => {
+      const req = unauthenticatedPost('http://localhost:3000/api/regime', {
+        symbols: ['SPY', 'QQQ'],
+      });
+      const res = await regimePOST(req);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('detects regime for multiple symbols with valid auth', async () => {
+      const req = authenticatedPost('http://localhost:3000/api/regime', {
+        symbols: ['SPY', 'QQQ'],
+      });
+      const res = await regimePOST(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.results).toHaveLength(2);
+    });
+  });
+
+  // =====================================================================
+  // Options Chain – GET
+  // =====================================================================
+  describe('GET /api/options/chain', () => {
+    beforeEach(() => {
+      mockGetOptionsContracts.mockResolvedValue({
+        option_contracts: [
+          {
+            symbol: 'AAPL240119C00150000',
+            name: 'AAPL Jan 19 2024 $150 Call',
+            expiration_date: '2024-01-19',
+            strike_price: '150.00',
+            type: 'call',
+            open_interest: '5000',
+            close_price: '5.50',
+          },
+        ],
+        next_page_token: null,
+      });
+      mockGetOptionsSnapshots.mockResolvedValue({});
+    });
+
+    it('returns 401 without auth header', async () => {
+      const req = unauthenticatedGet('http://localhost:3000/api/options/chain?symbol=AAPL');
+      const res = await optionsChainGET(req);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns options chain with valid auth', async () => {
+      const req = authenticatedGet('http://localhost:3000/api/options/chain?symbol=AAPL');
+      const res = await optionsChainGET(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.data.symbol).toBe('AAPL');
+      expect(body.data.chain).toHaveLength(1);
+    });
+
+    it('returns 400 without symbol', async () => {
+      const req = authenticatedGet('http://localhost:3000/api/options/chain');
+      const res = await optionsChainGET(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.success).toBe(false);
+    });
+  });
+
+  // =====================================================================
+  // Options Contracts – GET
+  // =====================================================================
+  describe('GET /api/options/contracts', () => {
+    beforeEach(() => {
+      mockGetOptionContract.mockResolvedValue({
+        id: 'contract-1',
+        symbol: 'AAPL240119C00150000',
+        name: 'AAPL Jan 19 2024 $150 Call',
+        status: 'active',
+        tradable: true,
+        expiration_date: '2024-01-19',
+        underlying_symbol: 'AAPL',
+        type: 'call',
+        style: 'american',
+        strike_price: '150.00',
+        size: '100',
+        open_interest: '5000',
+        open_interest_date: '2024-01-18',
+        close_price: '5.50',
+        close_price_date: '2024-01-18',
+      });
+      mockGetOptionsContracts.mockResolvedValue({
+        option_contracts: [],
+        next_page_token: null,
+      });
+    });
+
+    it('returns 401 without auth header', async () => {
+      const req = unauthenticatedGet('http://localhost:3000/api/options/contracts?symbol=AAPL240119C00150000');
+      const res = await optionsContractsGET(req);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns contract details with valid auth', async () => {
+      const req = authenticatedGet('http://localhost:3000/api/options/contracts?symbol=AAPL240119C00150000');
+      const res = await optionsContractsGET(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.data.contract.symbol).toBe('AAPL240119C00150000');
+    });
+
+    it('returns 400 without symbol or underlying', async () => {
+      const req = authenticatedGet('http://localhost:3000/api/options/contracts');
+      const res = await optionsContractsGET(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.success).toBe(false);
+    });
+  });
+
+  // =====================================================================
+  // Options Quotes – GET
+  // =====================================================================
+  describe('GET /api/options/quotes', () => {
+    beforeEach(() => {
+      mockGetOptionsSnapshots.mockResolvedValue({
+        'AAPL240119C00150000': {
+          latestQuote: {
+            bid_price: 5.0,
+            bid_size: 10,
+            ask_price: 5.5,
+            ask_size: 15,
+            last_price: 5.25,
+            last_size: 5,
+            timestamp: '2024-01-18T16:00:00Z',
+          },
+          latestTrade: {
+            price: 5.25,
+            size: 5,
+            exchange: 'CBOE',
+            timestamp: '2024-01-18T15:59:00Z',
+          },
+          greeks: {
+            delta: 0.65,
+            gamma: 0.03,
+            theta: -0.05,
+            vega: 0.12,
+            rho: 0.01,
+            implied_volatility: 0.35,
+          },
+        },
+      });
+    });
+
+    it('returns 401 without auth header', async () => {
+      const req = unauthenticatedGet('http://localhost:3000/api/options/quotes?symbols=AAPL240119C00150000');
+      const res = await optionsQuotesGET(req);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns quotes with valid auth', async () => {
+      const req = authenticatedGet('http://localhost:3000/api/options/quotes?symbols=AAPL240119C00150000');
+      const res = await optionsQuotesGET(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.data.quotes).toHaveLength(1);
+      expect(body.data.quotes[0].greeks.delta).toBe(0.65);
+    });
+
+    it('returns 400 without symbols', async () => {
+      const req = authenticatedGet('http://localhost:3000/api/options/quotes');
+      const res = await optionsQuotesGET(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.success).toBe(false);
     });
   });
 });
