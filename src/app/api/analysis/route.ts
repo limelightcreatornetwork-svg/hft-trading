@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getAccount, getPortfolioHistory, getAccountActivities } from '@/lib/alpaca';
+import { prisma } from '@/lib/db';
 import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
 
 // Disable caching
@@ -65,6 +66,21 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
           ? Number.POSITIVE_INFINITY
           : 0;
 
+    const activityOrderIds = (activities || [])
+      .map(a => a.order_id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+    const localOrders = activityOrderIds.length > 0
+      ? await prisma.order.findMany({
+          where: { brokerOrderId: { in: activityOrderIds } },
+          include: { intent: true },
+        })
+      : [];
+
+    const orderStrategyByBrokerId = new Map(
+      localOrders.map(o => [o.brokerOrderId, o.intent?.strategy || 'Fill'])
+    );
+
     const trades = (activities || []).map((a) => ({
       id: a.id,
       symbol: a.symbol,
@@ -74,7 +90,7 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
       exitPrice: a.price ? parseFloat(a.price) : 0,
       pnl: a.net_amount ? parseFloat(a.net_amount) : 0,
       pnlPercent: 0,
-      strategy: 'Fill',
+      strategy: orderStrategyByBrokerId.get(a.order_id || '') || 'Fill',
       entryDate: a.transaction_time,
       exitDate: a.transaction_time,
     }));

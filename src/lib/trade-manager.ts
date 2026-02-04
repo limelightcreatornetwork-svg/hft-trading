@@ -136,12 +136,37 @@ export async function createManagedPosition(request: TradeRequest): Promise<Crea
   }
 
   // Submit the actual order to broker (market order by default)
-  await submitOrder({
+  const order = await submitOrder({
     symbol: request.symbol.toUpperCase(),
     qty: request.quantity,
     side: request.side,
     type: 'market',
     time_in_force: 'day',
+  });
+
+  // Record intent + order for strategy attribution
+  const intent = await prisma.intent.create({
+    data: {
+      symbol: request.symbol.toUpperCase(),
+      side: request.side.toUpperCase(),
+      quantity: request.quantity,
+      orderType: 'MARKET',
+      strategy: 'managed',
+      status: 'EXECUTED',
+    },
+  });
+
+  await prisma.order.create({
+    data: {
+      intentId: intent.id,
+      brokerOrderId: order.id,
+      symbol: order.symbol,
+      side: order.side.toUpperCase(),
+      quantity: parseInt(order.qty, 10),
+      orderType: order.type.toUpperCase(),
+      limitPrice: order.limit_price ? parseFloat(order.limit_price) : null,
+      status: 'SUBMITTED',
+    },
   });
   
   // Create the managed position
