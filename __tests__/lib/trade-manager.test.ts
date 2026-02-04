@@ -17,6 +17,12 @@ jest.mock('../../src/lib/db', () => ({
       create: jest.fn(),
       update: jest.fn(),
     },
+    intent: {
+      create: jest.fn().mockResolvedValue({ id: 'intent-123' }),
+    },
+    order: {
+      create: jest.fn().mockResolvedValue({ id: 'order-123' }),
+    },
   },
 }));
 
@@ -29,6 +35,22 @@ jest.mock('../../src/lib/alpaca', () => ({
       AskPrice: 150.05,
     }),
   },
+  submitOrder: jest.fn().mockResolvedValue({
+    id: 'order-broker-123',
+    symbol: 'AAPL',
+    qty: '100',
+    side: 'buy',
+    type: 'market',
+    limit_price: null,
+  }),
+}));
+
+// Mock risk-engine
+jest.mock('../../src/lib/risk-engine', () => ({
+  checkIntent: jest.fn().mockResolvedValue({
+    approved: true,
+    reason: 'Risk checks passed',
+  }),
 }));
 
 // Mock confidence module

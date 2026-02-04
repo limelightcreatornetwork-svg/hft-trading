@@ -10,7 +10,6 @@ import { withAuth } from '@/lib/api-auth';
 import {
   createScaledExitPlan,
   getActiveScaledExitPlans,
-  monitorScaledExits,
   ScaledExitPresets,
 } from '@/lib/scaled-exits';
 

@@ -17,6 +17,18 @@ import {
   QueuedOrderStatus,
 } from '@/lib/order-queue';
 
+interface BatchOrderInput {
+  symbol: string;
+  qty: number;
+  side: 'buy' | 'sell';
+  type: 'market' | 'limit' | 'stop' | 'stop_limit';
+  time_in_force?: 'day' | 'gtc' | 'opg' | 'cls' | 'ioc' | 'fok';
+  limit_price?: number;
+  stop_price?: number;
+  priority?: 'critical' | 'high' | 'normal' | 'low';
+  metadata?: Record<string, unknown>;
+}
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -134,7 +146,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
         }
 
         const queuedOrders = await orderQueue.enqueueBatch(
-          orders.map((o: any) => ({
+          orders.map((o: BatchOrderInput) => ({
             order: {
               symbol: o.symbol,
               qty: o.qty,

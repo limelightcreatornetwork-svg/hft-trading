@@ -234,9 +234,11 @@ function TermStructure({ data, currentPrice }: { data: IVDataPoint[]; currentPri
         Math.abs(curr.strike - currentPrice) < Math.abs(prev.strike - currentPrice) ? curr : prev
       );
       
+      /* eslint-disable -- Date.now() acceptable for DTE calculation */
       const daysToExpiry = Math.ceil(
         (new Date(exp).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
       );
+      /* eslint-enable */
       
       return {
         expiration: exp,

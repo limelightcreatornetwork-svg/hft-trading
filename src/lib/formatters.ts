@@ -7,6 +7,71 @@
  */
 
 // =============================================================================
+// RAW ALPACA API RESPONSE TYPES (snake_case, string values)
+// =============================================================================
+
+/** Raw Alpaca position response from API */
+interface AlpacaRawPosition {
+  symbol: string;
+  asset_id: string;
+  exchange: string;
+  asset_class: string;
+  qty: string;
+  side: string;
+  avg_entry_price: string;
+  current_price: string;
+  market_value: string;
+  cost_basis: string;
+  unrealized_pl: string;
+  unrealized_plpc: string;
+  unrealized_intraday_pl: string;
+  unrealized_intraday_plpc: string;
+  lastday_price: string;
+  change_today: string;
+}
+
+/** Raw Alpaca order response from API */
+interface AlpacaRawOrder {
+  id: string;
+  client_order_id: string;
+  symbol: string;
+  asset_class: string;
+  qty: string;
+  filled_qty: string;
+  type: string;
+  side: string;
+  time_in_force: string;
+  limit_price?: string | null;
+  stop_price?: string | null;
+  filled_avg_price?: string | null;
+  status: string;
+  extended_hours: boolean;
+  created_at: string;
+  updated_at: string;
+  submitted_at: string;
+  filled_at?: string | null;
+  canceled_at?: string | null;
+}
+
+/** Raw Alpaca account response from API */
+interface AlpacaRawAccount {
+  id: string;
+  status: string;
+  currency: string;
+  buying_power: string;
+  cash: string;
+  portfolio_value: string;
+  equity: string;
+  last_equity: string;
+  long_market_value: string;
+  short_market_value: string;
+  initial_margin: string;
+  maintenance_margin: string;
+  daytrade_count: number;
+  pattern_day_trader: boolean;
+}
+
+// =============================================================================
 // POSITION FORMATTER
 // =============================================================================
 
@@ -29,7 +94,7 @@ export interface FormattedPosition {
   changeToday: number;
 }
 
-export function formatAlpacaPosition(pos: any): FormattedPosition {
+export function formatAlpacaPosition(pos: AlpacaRawPosition): FormattedPosition {
   return {
     symbol: pos.symbol,
     assetId: pos.asset_id,
@@ -76,7 +141,7 @@ export interface FormattedOrder {
   canceledAt: string | null;
 }
 
-export function formatAlpacaOrder(order: any): FormattedOrder {
+export function formatAlpacaOrder(order: AlpacaRawOrder): FormattedOrder {
   return {
     id: order.id,
     clientOrderId: order.client_order_id,
@@ -95,8 +160,8 @@ export function formatAlpacaOrder(order: any): FormattedOrder {
     createdAt: order.created_at,
     updatedAt: order.updated_at,
     submittedAt: order.submitted_at,
-    filledAt: order.filled_at,
-    canceledAt: order.canceled_at,
+    filledAt: order.filled_at ?? null,
+    canceledAt: order.canceled_at ?? null,
   };
 }
 
@@ -123,7 +188,7 @@ export interface FormattedAccount {
   dailyPLPercent: number;
 }
 
-export function formatAlpacaAccount(account: any): FormattedAccount {
+export function formatAlpacaAccount(account: AlpacaRawAccount): FormattedAccount {
   const equity = parseFloat(account.equity);
   const lastEquity = parseFloat(account.last_equity);
   const dailyPL = equity - lastEquity;

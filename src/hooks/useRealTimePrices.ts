@@ -119,6 +119,7 @@ export function useRealTimePrices(symbols: string[]) {
       }
     }
     if (relevantPrices.size > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial state from service cache
       setPrices(relevantPrices);
     }
 
@@ -173,11 +174,13 @@ export function useRealTimePrice(symbol: string) {
     // Initialize from current state
     const currentPrice = service.getPrice(upperSymbol);
     if (currentPrice) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial state from service cache
       setPrice(currentPrice);
     }
 
     const history = service.getPriceHistory(upperSymbol);
     if (history) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial state from service cache
       setPriceHistory(history.prices);
     }
 
@@ -227,6 +230,7 @@ export function usePriceHistory(symbol: string, maxLength: number = 100) {
 
     const currentHistory = service.getPriceHistory(upperSymbol);
     if (currentHistory) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial state from service cache
       setHistory({ ...currentHistory });
     }
 

@@ -233,6 +233,7 @@ export async function getPortfolioHistory(params: {
   extended_hours?: boolean;
 } = {}): Promise<AlpacaPortfolioHistory> {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Alpaca SDK method not in type definitions
     const history = await (alpaca as any).getPortfolioHistory(params);
     return history as AlpacaPortfolioHistory;
   } catch (error) {
@@ -254,6 +255,7 @@ export async function getAccountActivities(params: {
   pageToken?: string;
 } = {}): Promise<AlpacaAccountActivity[]> {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Alpaca SDK method not in type definitions
     const activities = await (alpaca as any).getAccountActivities(params);
     return activities as AlpacaAccountActivity[];
   } catch (error) {

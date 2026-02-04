@@ -16,7 +16,6 @@ import {
   getActiveVolumeSpikeAlerts,
   getActiveAlertsSummary,
   getAlertHistory,
-  monitorAlerts,
 } from '@/lib/alert-system';
 
 export const dynamic = 'force-dynamic';
@@ -44,7 +43,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
 
     const summary = getActiveAlertsSummary();
 
-    let data: {
+    const data: {
       summary: typeof summary;
       priceAlerts?: ReturnType<typeof getActivePriceAlerts>;
       pnlAlerts?: ReturnType<typeof getActivePnLAlerts>;

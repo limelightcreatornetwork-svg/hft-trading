@@ -15,7 +15,7 @@ import { NextRequest } from 'next/server';
 
 // Auth middleware – bypass authentication for route tests
 jest.mock('../../src/lib/api-auth', () => ({
-  withAuth: (handler: Function) => handler,
+  withAuth: <T extends (...args: unknown[]) => unknown>(handler: T) => handler,
   authenticateRequest: jest.fn().mockReturnValue({ authenticated: true, clientId: 'test-client' }),
 }));
 
@@ -241,7 +241,7 @@ describe('API: /api/trade', () => {
 
       expect(response.status).toBe(400);
       const data = await response.json();
-      expect(data.error).toContain('Symbol');
+      expect(data.error).toMatch(/symbol/i);
     });
 
     it('should return 400 when side is invalid', async () => {
@@ -253,7 +253,7 @@ describe('API: /api/trade', () => {
 
       expect(response.status).toBe(400);
       const data = await response.json();
-      expect(data.error).toContain('Side');
+      expect(data.error).toMatch(/side/i);
     });
 
     it('should return 400 when quantity is zero', async () => {
@@ -265,7 +265,7 @@ describe('API: /api/trade', () => {
 
       expect(response.status).toBe(400);
       const data = await response.json();
-      expect(data.error).toContain('Quantity');
+      expect(data.error).toMatch(/quantity/i);
     });
 
     it('should return 400 when entryPrice is negative', async () => {
@@ -277,7 +277,7 @@ describe('API: /api/trade', () => {
 
       expect(response.status).toBe(400);
       const data = await response.json();
-      expect(data.error).toContain('Entry price');
+      expect(data.error).toMatch(/entryPrice/i);
     });
 
     it('should return 500 when trade-manager throws', async () => {

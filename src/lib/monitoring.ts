@@ -475,8 +475,8 @@ export interface OrderMetricsQueryOptions extends TimeRange {
 export async function getOrderExecutionMetrics(
   options: OrderMetricsQueryOptions = {}
 ): Promise<OrderMetrics[]> {
-  let { startTime, endTime } = options;
-  const { hours } = options;
+  let { startTime } = options;
+  const { endTime, hours } = options;
 
   if (hours && !startTime) {
     startTime = new Date(Date.now() - hours * 60 * 60 * 1000);

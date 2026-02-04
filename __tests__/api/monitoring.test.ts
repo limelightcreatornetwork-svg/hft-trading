@@ -6,7 +6,7 @@ import { NextRequest } from 'next/server';
 
 // Mock the auth middleware
 jest.mock('../../src/lib/api-auth', () => ({
-  withAuth: (handler: Function) => handler,
+  withAuth: <T extends (...args: unknown[]) => unknown>(handler: T) => handler,
 }));
 
 // Mock the monitoring module

@@ -74,7 +74,7 @@ export default function DashboardPage() {
   // Real-time price context
   const { isConnected, subscribe, getPrice, getPriceHistory } = useRealTimePriceContext();
 
-  const watchlistSymbols = ['SPY', 'QQQ', 'AAPL'];
+  const watchlistSymbols = useMemo(() => ['SPY', 'QQQ', 'AAPL'], []);
 
   // Subscribe to position symbols for real-time updates
   useEffect(() => {

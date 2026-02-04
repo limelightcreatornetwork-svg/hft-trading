@@ -22,7 +22,7 @@ export function apiError(message: string, status = 500): NextResponse {
 export function apiHandler(
   handler: (request: NextRequest) => Promise<NextResponse>
 ) {
-  return withAuth(async function(request: NextRequest, context?: any) {
+  return withAuth(async function(request: NextRequest, _context?: Record<string, unknown>) {
     try {
       return await handler(request);
     } catch (error) {

@@ -13,7 +13,7 @@ jest.mock('../../src/lib/env', () => ({
 }));
 
 // Mock the WebSocket module
-const mockHandlers: Record<string, Function> = {};
+const mockHandlers: Record<string, (...args: unknown[]) => void> = {};
 const mockWsInstance = {
   connect: jest.fn().mockResolvedValue(undefined),
   disconnect: jest.fn(),

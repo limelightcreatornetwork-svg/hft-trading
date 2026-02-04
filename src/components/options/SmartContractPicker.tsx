@@ -153,6 +153,7 @@ export function SmartContractPicker({
       .map(contract => ({
         ...contract,
         score: scoreContract(contract, targetPreset, currentPrice),
+        // eslint-disable-next-line -- Date.now() acceptable for DTE calculation
         dte: Math.ceil((new Date(contract.expiration).getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
       }))
       .sort((a, b) => b.score - a.score);

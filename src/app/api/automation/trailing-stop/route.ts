@@ -10,7 +10,6 @@ import { withAuth } from '@/lib/api-auth';
 import {
   createTrailingStop,
   getActiveTrailingStops,
-  monitorTrailingStops,
   getTrailingStopHistory,
 } from '@/lib/trailing-stop';
 

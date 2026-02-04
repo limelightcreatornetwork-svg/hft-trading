@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AutomationRulesPanel } from "@/components/automation/AutomationRulesPanel";
 import { PositionAutomationSetup } from "@/components/automation/PositionAutomationSetup";
-import { RefreshCw, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Position {
   symbol: string;
@@ -28,7 +28,7 @@ interface PositionWithAutomation extends Position {
 export default function AutomationPage() {
   const [positions, setPositions] = useState<PositionWithAutomation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPosition, setSelectedPosition] = useState<string | null>(null);
+  const [selectedPosition, _setSelectedPosition] = useState<string | null>(null);
   const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
 
   const fetchPositions = async () => {
@@ -69,6 +69,7 @@ export default function AutomationPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Data fetching pattern
     fetchPositions();
   }, []);
 

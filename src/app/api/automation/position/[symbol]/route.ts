@@ -6,12 +6,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api-auth';
 import { getPositions, getLatestQuote } from '@/lib/alpaca';
-import { 
-  getRulesForPosition, 
-  createOCORule, 
-  createStopLossRule, 
+import {
+  getRulesForPosition,
+  createOCORule,
+  createStopLossRule,
   createTakeProfitRule,
-  cancelOCOGroup,
 } from '@/lib/automation';
 
 export const dynamic = 'force-dynamic';

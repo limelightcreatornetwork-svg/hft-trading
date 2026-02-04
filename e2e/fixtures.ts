@@ -428,6 +428,7 @@ export async function setupMockAPIs(page: Page) {
 export const test = base.extend<{ mockPage: Page }>({
   mockPage: async ({ page }, use) => {
     await setupMockAPIs(page);
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright fixture API, not React hook
     await use(page);
   },
 });
