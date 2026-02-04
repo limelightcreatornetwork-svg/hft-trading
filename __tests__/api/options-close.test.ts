@@ -281,7 +281,7 @@ describe('POST /api/options/positions/close', () => {
 
     expect(res.status).toBe(500);
     expect(data.success).toBe(false);
-    expect(data.error).toContain('Broker unavailable');
+    expect(data.error).toBe('Internal server error');
   });
 
   it('should return parsed option details', async () => {

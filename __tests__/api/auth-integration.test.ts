@@ -991,7 +991,7 @@ describe('API Authentication Integration', () => {
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.regime).toBe('bullish');
+      expect(body.data.regime).toBe('bullish');
     });
 
     it('accepts X-API-Key auth', async () => {
@@ -1008,7 +1008,7 @@ describe('API Authentication Integration', () => {
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.history).toBeDefined();
+      expect(body.data.history).toBeDefined();
     });
   });
 
@@ -1043,7 +1043,7 @@ describe('API Authentication Integration', () => {
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.results).toHaveLength(2);
+      expect(body.data.results).toHaveLength(2);
     });
   });
 

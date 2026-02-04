@@ -9,13 +9,10 @@ import {
   isValidTransition,
   isTerminalState,
   isActiveState,
-  TERMINAL_STATES,
-  ACTIVE_STATES,
   createOMS,
   getOMS,
   resetOMS,
   ManagedOrder,
-  OrderTransition,
 } from '@/lib/oms-state-machine';
 
 describe('OMS State Machine', () => {

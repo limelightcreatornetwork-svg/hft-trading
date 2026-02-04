@@ -1,12 +1,12 @@
 /**
  * Trailing Stop API Routes
- * 
+ *
  * GET  - List active trailing stops
  * POST - Create a new trailing stop
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from '@/lib/api-auth';
+import { NextRequest } from 'next/server';
+import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
 import {
   createTrailingStop,
   getActiveTrailingStops,
@@ -16,85 +16,54 @@ import {
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const GET = withAuth(async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const symbol = searchParams.get('symbol');
-    const history = searchParams.get('history') === 'true';
+export const GET = apiHandler(async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const symbol = searchParams.get('symbol');
+  const history = searchParams.get('history') === 'true';
 
-    if (history) {
-      const historyData = await getTrailingStopHistory(symbol || undefined);
-      return NextResponse.json({
-        success: true,
-        data: historyData,
-      });
-    }
-
-    const stops = await getActiveTrailingStops(symbol || undefined);
-    
-    return NextResponse.json({
-      success: true,
-      data: {
-        count: stops.length,
-        stops,
-      },
-    });
-  } catch (error) {
-    console.error('GET trailing stops error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to get trailing stops' },
-      { status: 500 }
-    );
+  if (history) {
+    const historyData = await getTrailingStopHistory(symbol || undefined);
+    return apiSuccess(historyData);
   }
+
+  const stops = await getActiveTrailingStops(symbol || undefined);
+
+  return apiSuccess({
+    count: stops.length,
+    stops,
+  });
 });
 
-export const POST = withAuth(async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    
-    const {
-      symbol,
-      entryPrice,
-      trailPercent,
-      trailAmount,
-      activationPercent,
-      quantity,
-      enabled = true,
-    } = body;
+export const POST = apiHandler(async function POST(request: NextRequest) {
+  const body = await request.json();
 
-    if (!symbol || !entryPrice) {
-      return NextResponse.json(
-        { success: false, error: 'Symbol and entryPrice are required' },
-        { status: 400 }
-      );
-    }
+  const {
+    symbol,
+    entryPrice,
+    trailPercent,
+    trailAmount,
+    activationPercent,
+    quantity,
+    enabled = true,
+  } = body;
 
-    if (!trailPercent && !trailAmount) {
-      return NextResponse.json(
-        { success: false, error: 'Must specify either trailPercent or trailAmount' },
-        { status: 400 }
-      );
-    }
-
-    const stop = await createTrailingStop({
-      symbol,
-      entryPrice,
-      trailPercent,
-      trailAmount,
-      activationPercent,
-      quantity,
-      enabled,
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: stop,
-    });
-  } catch (error) {
-    console.error('POST trailing stop error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to create trailing stop' },
-      { status: 500 }
-    );
+  if (!symbol || !entryPrice) {
+    return apiError('Symbol and entryPrice are required', 400);
   }
+
+  if (!trailPercent && !trailAmount) {
+    return apiError('Must specify either trailPercent or trailAmount', 400);
+  }
+
+  const stop = await createTrailingStop({
+    symbol,
+    entryPrice,
+    trailPercent,
+    trailAmount,
+    activationPercent,
+    quantity,
+    enabled,
+  });
+
+  return apiSuccess(stop);
 });

@@ -16,7 +16,6 @@ import {
 import type { StrategyInput, StrategyUpdate } from './strategy-manager';
 
 const STRATEGY_TYPES = ['manual', 'momentum', 'meanReversion', 'breakout'] as const;
-type StrategyType = (typeof STRATEGY_TYPES)[number];
 
 /**
  * Validate that a value is a non-empty array of valid stock symbols

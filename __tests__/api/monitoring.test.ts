@@ -171,7 +171,7 @@ describe('Monitoring API Endpoints', () => {
       expect(response.status).toBe(500);
       const data = await response.json();
       expect(data.success).toBe(false);
-      expect(data.error).toContain('Failed to fetch latency metrics');
+      expect(data.error).toBe('Internal server error');
     });
   });
 

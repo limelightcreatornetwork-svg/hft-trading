@@ -363,7 +363,7 @@ test.describe('Dashboard Error Handling', () => {
     await page.goto('/');
     
     // Look for loading indicators (skeleton, spinner, animate-pulse)
-    const hasLoadingIndicator = await page.locator('.animate-spin, .animate-pulse, [class*="loading"], [class*="skeleton"]').first().isVisible({ timeout: 1000 }).catch(() => false);
+    const _hasLoadingIndicator = await page.locator('.animate-spin, .animate-pulse, [class*="loading"], [class*="skeleton"]').first().isVisible({ timeout: 1000 }).catch(() => false);
     
     // Page should show something while loading
     const hasContent = await page.locator('body').isVisible();

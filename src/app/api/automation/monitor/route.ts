@@ -3,8 +3,8 @@
  * POST /api/automation/monitor - Trigger monitoring check (checks all rules)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from '@/lib/api-auth';
+import { NextRequest } from 'next/server';
+import { apiHandler, apiSuccess } from '@/lib/api-helpers';
 import { monitorAndExecute, getActiveRules } from '@/lib/automation';
 import { isMarketOpen } from '@/lib/alpaca';
 
@@ -15,76 +15,51 @@ export const revalidate = 0;
 let lastMonitorRun: Date | null = null;
 let lastMonitorResult: Awaited<ReturnType<typeof monitorAndExecute>> | null = null;
 
-export const GET = withAuth(async function GET(_request) {
-  try {
-    const marketOpen = await isMarketOpen();
-    const activeRules = await getActiveRules();
+export const GET = apiHandler(async function GET(_request) {
+  const marketOpen = await isMarketOpen();
+  const activeRules = await getActiveRules();
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        marketOpen,
-        activeRulesCount: activeRules.length,
-        lastMonitorRun: lastMonitorRun?.toISOString() || null,
-        lastResult: lastMonitorResult,
-        rulesPreview: activeRules.slice(0, 5).map(r => ({
-          id: r.id,
-          symbol: r.symbol,
-          ruleType: r.ruleType,
-          triggerType: r.triggerType,
-          triggerValue: r.triggerValue,
-          currentPrice: r.currentPrice,
-          distanceToTriggerPct: r.distanceToTriggerPct?.toFixed(2) + '%',
-        })),
-      },
-    });
-  } catch (error) {
-    console.error('Monitor GET error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to get monitor status' },
-      { status: 500 }
-    );
-  }
+  return apiSuccess({
+    marketOpen,
+    activeRulesCount: activeRules.length,
+    lastMonitorRun: lastMonitorRun?.toISOString() || null,
+    lastResult: lastMonitorResult,
+    rulesPreview: activeRules.slice(0, 5).map(r => ({
+      id: r.id,
+      symbol: r.symbol,
+      ruleType: r.ruleType,
+      triggerType: r.triggerType,
+      triggerValue: r.triggerValue,
+      currentPrice: r.currentPrice,
+      distanceToTriggerPct: r.distanceToTriggerPct?.toFixed(2) + '%',
+    })),
+  });
 });
 
-export const POST = withAuth(async function POST(request: NextRequest) {
-  try {
-    const body = await request.json().catch(() => ({}));
-    const force = body.force === true;
+export const POST = apiHandler(async function POST(request: NextRequest) {
+  const body = await request.json().catch(() => ({}));
+  const force = body.force === true;
 
-    // Check if market is open (unless forced)
-    const marketOpen = await isMarketOpen();
-    if (!marketOpen && !force) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          skipped: true,
-          reason: 'Market is closed',
-          marketOpen: false,
-        },
-      });
-    }
-
-    // Run the monitor
-    const result = await monitorAndExecute();
-    
-    // Store for status endpoint
-    lastMonitorRun = new Date();
-    lastMonitorResult = result;
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...result,
-        marketOpen,
-        timestamp: lastMonitorRun.toISOString(),
-      },
+  // Check if market is open (unless forced)
+  const marketOpen = await isMarketOpen();
+  if (!marketOpen && !force) {
+    return apiSuccess({
+      skipped: true,
+      reason: 'Market is closed',
+      marketOpen: false,
     });
-  } catch (error) {
-    console.error('Monitor POST error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to run monitor' },
-      { status: 500 }
-    );
   }
+
+  // Run the monitor
+  const result = await monitorAndExecute();
+
+  // Store for status endpoint
+  lastMonitorRun = new Date();
+  lastMonitorResult = result;
+
+  return apiSuccess({
+    ...result,
+    marketOpen,
+    timestamp: lastMonitorRun.toISOString(),
+  });
 });

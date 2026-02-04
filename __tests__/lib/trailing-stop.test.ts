@@ -4,7 +4,6 @@
 
 import {
   createTrailingStop,
-  getActiveTrailingStops,
   monitorTrailingStops,
   updateTrailingStop,
   cancelTrailingStop,

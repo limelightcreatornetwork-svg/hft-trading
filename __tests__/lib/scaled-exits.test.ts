@@ -4,7 +4,6 @@
 
 import {
   createScaledExitPlan,
-  getActiveScaledExitPlans,
   getScaledExitPlan,
   monitorScaledExits,
   cancelScaledExitPlan,

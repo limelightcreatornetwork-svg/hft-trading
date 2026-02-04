@@ -90,6 +90,7 @@ function makeMockBars(count: number = 30) {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const Alpaca = require('@alpacahq/alpaca-trade-api');
 let mockGetBarsV2: jest.Mock;
 

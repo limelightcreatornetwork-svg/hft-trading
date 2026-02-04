@@ -427,7 +427,7 @@ describe('POST /api/options/orders', () => {
 
       expect(res.status).toBe(500);
       expect(data.success).toBe(false);
-      expect(data.error).toContain('Failed to submit');
+      expect(data.error).toBe('Internal server error');
     });
   });
 });

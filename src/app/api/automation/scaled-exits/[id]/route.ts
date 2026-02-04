@@ -6,108 +6,66 @@
  * DELETE - Cancel a plan
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import {
   getScaledExitPlan,
   updateScaledExitPlan,
   cancelScaledExitPlan,
   getScaledExitHistory,
 } from '@/lib/scaled-exits';
-import { withAuth } from '@/lib/api-auth';
-import { createLogger, serializeError } from '@/lib/logger';
-
-const log = createLogger('api:scaled-exits');
+import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
 
 export const dynamic = 'force-dynamic';
 
-type RouteContext = { params: Promise<{ id: string }> };
+type RouteContext = { params: Promise<Record<string, string>> };
 
-export const GET = withAuth(async function GET(
+export const GET = apiHandler(async function GET(
   request: NextRequest,
-  context?: Record<string, unknown>
+  context?: RouteContext
 ) {
-  try {
-    const { id } = await (context as unknown as RouteContext).params;
-    const { searchParams } = new URL(request.url);
-    const history = searchParams.get('history') === 'true';
+  const { id } = await context!.params;
+  const { searchParams } = new URL(request.url);
+  const history = searchParams.get('history') === 'true';
 
-    if (history) {
-      const historyData = await getScaledExitHistory(id);
-      return NextResponse.json({
-        success: true,
-        data: historyData,
-      });
-    }
-
-    const plan = getScaledExitPlan(id);
-
-    if (!plan) {
-      return NextResponse.json(
-        { success: false, error: 'Plan not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: plan,
-    });
-  } catch (error) {
-    log.error('Failed to get scaled exit plan', serializeError(error));
-    return NextResponse.json(
-      { success: false, error: 'Failed to get scaled exit plan' },
-      { status: 500 }
-    );
+  if (history) {
+    const historyData = await getScaledExitHistory(id);
+    return apiSuccess(historyData);
   }
+
+  const plan = getScaledExitPlan(id);
+
+  if (!plan) {
+    return apiError('Plan not found', 404);
+  }
+
+  return apiSuccess(plan);
 });
 
-export const PATCH = withAuth(async function PATCH(
+export const PATCH = apiHandler(async function PATCH(
   request: NextRequest,
-  context?: Record<string, unknown>
+  context?: RouteContext
 ) {
-  try {
-    const { id } = await (context as unknown as RouteContext).params;
-    const body = await request.json();
+  const { id } = await context!.params;
+  const body = await request.json();
 
-    const { addTargets, removeTargetPercent, updateTrailing } = body;
+  const { addTargets, removeTargetPercent, updateTrailing } = body;
 
-    const updated = updateScaledExitPlan(id, {
-      addTargets,
-      removeTargetPercent,
-      updateTrailing,
-    });
+  const updated = updateScaledExitPlan(id, {
+    addTargets,
+    removeTargetPercent,
+    updateTrailing,
+  });
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    log.error('Failed to update scaled exit plan', serializeError(error));
-    return NextResponse.json(
-      { success: false, error: 'Failed to update scaled exit plan' },
-      { status: 500 }
-    );
-  }
+  return apiSuccess(updated);
 });
 
-export const DELETE = withAuth(async function DELETE(
+export const DELETE = apiHandler(async function DELETE(
   _request: NextRequest,
-  context?: Record<string, unknown>
+  context?: RouteContext
 ) {
-  try {
-    const { id } = await (context as unknown as RouteContext).params;
+  const { id } = await context!.params;
 
-    await cancelScaledExitPlan(id);
+  await cancelScaledExitPlan(id);
 
-    return NextResponse.json({
-      success: true,
-      message: 'Scaled exit plan cancelled',
-    });
-  } catch (error) {
-    log.error('Failed to cancel scaled exit plan', serializeError(error));
-    return NextResponse.json(
-      { success: false, error: 'Failed to cancel scaled exit plan' },
-      { status: 500 }
-    );
-  }
+  return apiSuccess({ message: 'Scaled exit plan cancelled' });
 });

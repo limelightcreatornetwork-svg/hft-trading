@@ -2,14 +2,12 @@
  * Tests for Trading Bot Automation Service
  */
 
-import { 
+import {
   createAutomationRule,
   createOCORule,
   createStopLossRule,
   createTakeProfitRule,
   createLimitOrderRule,
-  RuleType,
-  TriggerType,
 } from '@/lib/automation';
 
 // Mock the dependencies
@@ -43,9 +41,9 @@ import { prisma } from '@/lib/db';
 import { getLatestQuote, getPositions, submitOrder } from '@/lib/alpaca';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
-const mockGetLatestQuote = getLatestQuote as jest.Mock;
-const mockGetPositions = getPositions as jest.Mock;
-const mockSubmitOrder = submitOrder as jest.Mock;
+const _mockGetLatestQuote = getLatestQuote as jest.Mock;
+const _mockGetPositions = getPositions as jest.Mock;
+const _mockSubmitOrder = submitOrder as jest.Mock;
 
 describe('Automation Service', () => {
   beforeEach(() => {

@@ -116,6 +116,7 @@ describe('Environment Utilities', () => {
       process.env.LOG_LEVEL = 'warn';
       // Re-require logger to pick up new log level
       jest.resetModules();
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getNumericEnv: getNumericEnvFresh } = require('../../src/lib/env');
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
 

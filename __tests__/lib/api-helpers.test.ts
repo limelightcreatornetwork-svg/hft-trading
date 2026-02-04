@@ -238,7 +238,7 @@ describe('apiHandler', () => {
     const response = await wrappedHandler(request);
     const body = await response.json();
 
-    expect(handler).toHaveBeenCalledWith(request);
+    expect(handler).toHaveBeenCalledWith(request, undefined);
     expect(body.success).toBe(true);
     expect(body.data.result).toBe('ok');
   });
@@ -392,7 +392,7 @@ describe('apiHandler', () => {
 
 describe('api-helpers integration', () => {
   it('should work together for typical success flow', async () => {
-    const handler = async (req: NextRequest) => {
+    const handler = async (_req: NextRequest) => {
       const data = { items: [1, 2, 3], total: 3 };
       return apiSuccess(data);
     };

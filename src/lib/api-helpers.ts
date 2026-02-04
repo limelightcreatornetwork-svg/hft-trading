@@ -18,16 +18,19 @@ export function apiError(message: string, status = 500): NextResponse {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
+type RouteContext = { params: Promise<Record<string, string>> };
+
 /**
  * Create an authenticated API handler with automatic error handling.
  * Eliminates boilerplate try/catch in every route.
+ * Supports both static routes and dynamic routes with params.
  */
 export function apiHandler(
-  handler: (request: NextRequest) => Promise<NextResponse>
+  handler: (request: NextRequest, context?: RouteContext) => Promise<NextResponse>
 ) {
-  return withAuth(async function(request: NextRequest, _context?: Record<string, unknown>) {
+  return withAuth(async function(request: NextRequest, context?: RouteContext) {
     try {
-      return await handler(request);
+      return await handler(request, context);
     } catch (error) {
       const method = request?.method ?? 'UNKNOWN';
       const pathname = request?.nextUrl?.pathname ?? 'unknown';

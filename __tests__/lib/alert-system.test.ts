@@ -331,7 +331,7 @@ describe('Alert System Service', () => {
       mockGetLatestQuote.mockResolvedValue({ bid: 99, ask: 101, last: 100 });
       (mockPrisma.alert.create as jest.Mock).mockResolvedValue({});
 
-      const alert = await createPriceAlert({
+      const _alert = await createPriceAlert({
         symbol: 'SPY',
         alertType: 'PRICE_ABOVE',
         targetValue: 450,

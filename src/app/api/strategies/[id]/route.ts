@@ -8,8 +8,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { withAuth } from '@/lib/api-auth';
-import { apiSuccess, apiError } from '@/lib/api-helpers';
+import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
 import {
   getStrategy,
   updateStrategy,
@@ -17,90 +16,70 @@ import {
   toggleStrategyEnabled,
 } from '@/lib/strategy-manager';
 import { validateStrategyUpdate } from '@/lib/strategy-validation';
-import { createLogger, serializeError } from '@/lib/logger';
-
-const log = createLogger('api:strategies');
 
 export const dynamic = 'force-dynamic';
 
-type RouteContext = { params: Promise<{ id: string }> };
-
-export const GET = withAuth(async function GET(
+export const GET = apiHandler(async function GET(
   _request: NextRequest,
-  context?: Record<string, unknown>
+  context?: { params: Promise<Record<string, string>> }
 ) {
-  try {
-    const { id } = await (context as unknown as RouteContext).params;
-    const strategy = await getStrategy(id);
+  const { id } = await context!.params;
+  const strategy = await getStrategy(id);
 
-    if (!strategy) {
-      return apiError('Strategy not found', 404);
-    }
-
-    return apiSuccess(strategy);
-  } catch (error) {
-    log.error('Failed to get strategy', serializeError(error));
-    return apiError('Internal server error');
+  if (!strategy) {
+    return apiError('Strategy not found', 404);
   }
+
+  return apiSuccess(strategy);
 });
 
-export const PUT = withAuth(async function PUT(
+export const PUT = apiHandler(async function PUT(
   request: NextRequest,
-  context?: Record<string, unknown>
+  context?: { params: Promise<Record<string, string>> }
 ) {
-  try {
-    const { id } = await (context as unknown as RouteContext).params;
+  const { id } = await context!.params;
 
-    const existing = await getStrategy(id);
-    if (!existing) {
-      return apiError('Strategy not found', 404);
-    }
-
-    const body = await request.json();
-    const validated = validateStrategyUpdate(body);
-
-    if (!validated.valid) {
-      return apiError(validated.error, 400);
-    }
-
-    const strategy = await updateStrategy(id, validated.value);
-    return apiSuccess(strategy);
-  } catch (error) {
-    log.error('Failed to update strategy', serializeError(error));
-    return apiError('Internal server error');
+  const existing = await getStrategy(id);
+  if (!existing) {
+    return apiError('Strategy not found', 404);
   }
+
+  const body = await request.json();
+  const validated = validateStrategyUpdate(body);
+
+  if (!validated.valid) {
+    return apiError(validated.error, 400);
+  }
+
+  const strategy = await updateStrategy(id, validated.value);
+  return apiSuccess(strategy);
 });
 
-export const DELETE = withAuth(async function DELETE(
+export const DELETE = apiHandler(async function DELETE(
   _request: NextRequest,
-  context?: Record<string, unknown>
+  context?: { params: Promise<Record<string, string>> }
 ) {
-  try {
-    const { id } = await (context as unknown as RouteContext).params;
+  const { id } = await context!.params;
 
-    const existing = await getStrategy(id);
-    if (!existing) {
-      return apiError('Strategy not found', 404);
-    }
-
-    await deleteStrategy(id);
-    return apiSuccess({ message: 'Strategy deleted' });
-  } catch (error) {
-    log.error('Failed to delete strategy', serializeError(error));
-    return apiError('Internal server error');
+  const existing = await getStrategy(id);
+  if (!existing) {
+    return apiError('Strategy not found', 404);
   }
+
+  await deleteStrategy(id);
+  return apiSuccess({ message: 'Strategy deleted' });
 });
 
-export const PATCH = withAuth(async function PATCH(
+export const PATCH = apiHandler(async function PATCH(
   _request: NextRequest,
-  context?: Record<string, unknown>
+  context?: { params: Promise<Record<string, string>> }
 ) {
+  const { id } = await context!.params;
+
   try {
-    const { id } = await (context as unknown as RouteContext).params;
     const strategy = await toggleStrategyEnabled(id);
     return apiSuccess(strategy);
-  } catch (error) {
-    log.error('Failed to toggle strategy', serializeError(error));
+  } catch {
     return apiError('Strategy not found', 404);
   }
 });

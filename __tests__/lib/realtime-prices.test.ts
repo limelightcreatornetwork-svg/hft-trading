@@ -45,7 +45,6 @@ jest.mock('../../src/lib/alpaca-websocket', () => ({
 import {
   getRealTimePriceService,
   resetRealTimePriceService,
-  type RealTimePrice,
 } from '../../src/lib/realtime-prices';
 
 describe('RealTimePriceService', () => {
@@ -248,7 +247,7 @@ describe('RealTimePriceService', () => {
     });
 
     it('should trim price history when max length exceeded', async () => {
-      const service = getRealTimePriceService();
+      const _service = getRealTimePriceService();
 
       // Re-initialize with small history max length
       resetRealTimePriceService();

@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getRegimeDetector, AlpacaRegimeResult } from '@/lib/regime';
-import { withAuth } from '@/lib/api-auth';
+import { apiHandler, apiSuccess } from '@/lib/api-helpers';
 
 // In-memory regime history (for backtesting)
 // In production, this would be stored in a database
@@ -22,83 +22,54 @@ function addToHistory(result: AlpacaRegimeResult) {
   }
 }
 
-export const GET = withAuth(async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const symbol = searchParams.get('symbol') || 'SPY';
-    const historyMode = searchParams.get('history') === 'true';
-    const historyLimit = parseInt(searchParams.get('limit') || '100', 10);
-    
-    // If requesting history, return stored data
-    if (historyMode) {
-      const history = regimeHistory.get(symbol) || [];
-      const limitedHistory = history.slice(-Math.min(historyLimit, MAX_HISTORY_SIZE));
-      
-      return NextResponse.json({
-        success: true,
-        symbol,
-        count: limitedHistory.length,
-        history: limitedHistory,
-      });
-    }
-    
-    // Otherwise, detect current regime
-    const detector = getRegimeDetector(symbol);
-    const result = await detector.detect();
-    
-    // Store in history
-    addToHistory(result);
-    
-    return NextResponse.json({
-      success: true,
-      ...result,
+export const GET = apiHandler(async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const symbol = searchParams.get('symbol') || 'SPY';
+  const historyMode = searchParams.get('history') === 'true';
+  const historyLimit = parseInt(searchParams.get('limit') || '100', 10);
+
+  // If requesting history, return stored data
+  if (historyMode) {
+    const history = regimeHistory.get(symbol) || [];
+    const limitedHistory = history.slice(-Math.min(historyLimit, MAX_HISTORY_SIZE));
+
+    return apiSuccess({
+      symbol,
+      count: limitedHistory.length,
+      history: limitedHistory,
     });
-  } catch (error) {
-    console.error('Regime detection error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to detect regime',
-      },
-      { status: 500 }
-    );
   }
+
+  // Otherwise, detect current regime
+  const detector = getRegimeDetector(symbol);
+  const result = await detector.detect();
+
+  // Store in history
+  addToHistory(result);
+
+  return apiSuccess(result);
 });
 
 // POST endpoint for batch regime detection on multiple symbols
-export const POST = withAuth(async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const symbols: string[] = body.symbols || ['SPY'];
-    
-    const results = await Promise.all(
-      symbols.map(async (symbol) => {
-        try {
-          const detector = getRegimeDetector(symbol);
-          const result = await detector.detect();
-          addToHistory(result);
-          return result;
-        } catch (_error) {
-          return {
-            symbol,
-            error: 'Detection failed',
-          };
-        }
-      })
-    );
-    
-    return NextResponse.json({
-      success: true,
-      results,
-    });
-  } catch (error) {
-    console.error('Batch regime detection error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Batch detection failed',
-      },
-      { status: 500 }
-    );
-  }
+export const POST = apiHandler(async function POST(request: NextRequest) {
+  const body = await request.json();
+  const symbols: string[] = body.symbols || ['SPY'];
+
+  const results = await Promise.all(
+    symbols.map(async (symbol) => {
+      try {
+        const detector = getRegimeDetector(symbol);
+        const result = await detector.detect();
+        addToHistory(result);
+        return result;
+      } catch (_error) {
+        return {
+          symbol,
+          error: 'Detection failed',
+        };
+      }
+    })
+  );
+
+  return apiSuccess({ results });
 });

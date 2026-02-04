@@ -1,4 +1,4 @@
-import { test, expect, setupMockAPIs, mockPortfolioData, mockPositionsData } from './fixtures';
+import { test, expect, setupMockAPIs, mockPositionsData } from './fixtures';
 
 test.describe('Portfolio Page', () => {
   test.beforeEach(async ({ page }) => {

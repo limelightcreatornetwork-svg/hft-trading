@@ -1,8 +1,10 @@
 /**
  * Environment Variable Validation
- * 
+ *
  * Provides type-safe access to environment variables with proper error messages
  */
+
+import { createLogger } from './logger';
 
 /**
  * Get a required environment variable
@@ -43,7 +45,6 @@ export function getNumericEnv(name: string, defaultValue: number): number {
   if (!value) return defaultValue;
   const parsed = parseFloat(value);
   if (isNaN(parsed)) {
-    const { createLogger } = require('./logger');
     createLogger('env').warn('Invalid numeric env var', { name, value, defaultValue });
     return defaultValue;
   }
@@ -63,7 +64,6 @@ export function validateEnvironment(): { valid: boolean; missing: string[] } {
   const missing = required.filter(name => !process.env[name]);
   
   if (missing.length > 0) {
-    const { createLogger } = require('./logger');
     createLogger('env').error('Missing required environment variables', { missing });
   }
   

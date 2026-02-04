@@ -1141,9 +1141,9 @@ describe('API: /api/regime', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.regime).toBe('TREND');
-      expect(data.confidence).toBe(0.85);
-      expect(data.symbol).toBe('SPY');
+      expect(data.data.regime).toBe('TREND');
+      expect(data.data.confidence).toBe(0.85);
+      expect(data.data.symbol).toBe('SPY');
     });
 
     it('should detect regime for a specific symbol', async () => {
@@ -1157,7 +1157,7 @@ describe('API: /api/regime', () => {
       const data = await response.json();
 
       expect(data.success).toBe(true);
-      expect(data.regime).toBe('CHOP');
+      expect(data.data.regime).toBe('CHOP');
     });
 
     it('should return history when history=true', async () => {
@@ -1169,8 +1169,8 @@ describe('API: /api/regime', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.history).toBeDefined();
-      expect(Array.isArray(data.history)).toBe(true);
+      expect(data.data.history).toBeDefined();
+      expect(Array.isArray(data.data.history)).toBe(true);
     });
 
     it('should return 500 when detection fails', async () => {
@@ -1197,7 +1197,7 @@ describe('API: /api/regime', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.results).toHaveLength(3);
+      expect(data.data.results).toHaveLength(3);
     });
 
     it('should default to SPY when no symbols provided', async () => {
@@ -1207,7 +1207,7 @@ describe('API: /api/regime', () => {
       const response = await regimePost(request);
       const data = await response.json();
 
-      expect(data.results).toHaveLength(1);
+      expect(data.data.results).toHaveLength(1);
     });
 
     it('should include error for individual symbol failures', async () => {
@@ -1223,10 +1223,10 @@ describe('API: /api/regime', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.results).toHaveLength(2);
+      expect(data.data.results).toHaveLength(2);
       // First succeeds, second has error
-      expect(data.results[0].regime).toBeDefined();
-      expect(data.results[1].error).toBeDefined();
+      expect(data.data.results[0].regime).toBeDefined();
+      expect(data.data.results[1].error).toBeDefined();
     });
 
     it('should return 500 on unexpected failure', async () => {

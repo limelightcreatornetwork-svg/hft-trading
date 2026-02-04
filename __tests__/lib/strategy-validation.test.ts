@@ -41,7 +41,7 @@ describe('Strategy Validation', () => {
     });
 
     it('should reject missing name', () => {
-      const { name, ...rest } = validInput;
+      const { name: _name, ...rest } = validInput;
       const result = validateStrategyInput(rest);
       expect(result.valid).toBe(false);
       if (!result.valid) expect(result.error).toContain('name');
