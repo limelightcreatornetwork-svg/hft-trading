@@ -17,6 +17,59 @@ function calculateDailyPnL(profitLoss: number[]): { dateIndex: number; pnl: numb
   return daily;
 }
 
+function calculateSharpeRatio(dailyReturns: number[]): number | null {
+  if (dailyReturns.length < 2) return null;
+  const mean = dailyReturns.reduce((s, v) => s + v, 0) / dailyReturns.length;
+  const variance = dailyReturns.reduce((s, v) => s + (v - mean) ** 2, 0) / (dailyReturns.length - 1);
+  const stdDev = Math.sqrt(variance);
+  if (stdDev === 0) return null;
+  // Annualize: multiply by sqrt(252 trading days)
+  return (mean / stdDev) * Math.sqrt(252);
+}
+
+function calculateMaxDrawdown(equitySeries: number[]): number | null {
+  if (equitySeries.length < 2) return null;
+  let peak = equitySeries[0];
+  let maxDd = 0;
+  for (const equity of equitySeries) {
+    if (equity > peak) peak = equity;
+    const dd = peak > 0 ? ((peak - equity) / peak) * 100 : 0;
+    if (dd > maxDd) maxDd = dd;
+  }
+  return maxDd;
+}
+
+function calculateAvgHoldingTime(
+  activities: Array<{ symbol?: string; side?: string; transaction_time?: string }>
+): number | null {
+  // Pair BUY→SELL fills per symbol to estimate holding duration
+  const buys = new Map<string, string[]>();
+  const holdingHours: number[] = [];
+
+  for (const a of activities) {
+    const symbol = a.symbol;
+    const side = a.side?.toUpperCase();
+    const time = a.transaction_time;
+    if (!symbol || !side || !time) continue;
+
+    if (side === 'BUY') {
+      const queue = buys.get(symbol) || [];
+      queue.push(time);
+      buys.set(symbol, queue);
+    } else if (side === 'SELL') {
+      const queue = buys.get(symbol);
+      if (queue && queue.length > 0) {
+        const buyTime = queue.shift()!;
+        const hours = (new Date(time).getTime() - new Date(buyTime).getTime()) / (1000 * 60 * 60);
+        if (hours >= 0) holdingHours.push(hours);
+      }
+    }
+  }
+
+  if (holdingHours.length === 0) return null;
+  return holdingHours.reduce((s, v) => s + v, 0) / holdingHours.length;
+}
+
 export const GET = apiHandler(async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -95,6 +148,18 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
       exitDate: a.transaction_time,
     }));
 
+    // Compute daily returns as percentages for Sharpe calculation
+    const dailyReturns: number[] = [];
+    for (let i = 1; i < equitySeries.length; i++) {
+      if (equitySeries[i - 1] > 0) {
+        dailyReturns.push((equitySeries[i] - equitySeries[i - 1]) / equitySeries[i - 1]);
+      }
+    }
+
+    const sharpeRatio = calculateSharpeRatio(dailyReturns);
+    const maxDrawdown = calculateMaxDrawdown(equitySeries);
+    const avgHoldingTime = calculateAvgHoldingTime(activities || []);
+
     return apiSuccess({
       metrics: {
         totalValue: lastEquity,
@@ -103,13 +168,13 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
         winRate: winDays + loseDays > 0 ? (winDays / (winDays + loseDays)) * 100 : 0,
         avgWin,
         avgLoss,
-        sharpeRatio: null,
-        maxDrawdown: null,
+        sharpeRatio,
+        maxDrawdown,
         tradesCount: trades.length,
         winningTrades: winDays,
         losingTrades: loseDays,
         profitFactor: Number.isFinite(profitFactor) ? profitFactor : null,
-        avgHoldingTime: null,
+        avgHoldingTime,
       },
       trades,
       equityCurve: timestamps.map((ts, idx) => ({
