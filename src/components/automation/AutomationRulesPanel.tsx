@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Trash2, RefreshCw, Play, Pause, AlertTriangle } from 'lucide-react';
+import { Trash2, RefreshCw, Play, AlertTriangle } from 'lucide-react';
 
 interface AutomationRule {
   id: string;

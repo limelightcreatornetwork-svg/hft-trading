@@ -92,7 +92,7 @@ const STRATEGY_PRESETS = {
 function scoreContract(
   contract: OptionContract,
   preset: typeof STRATEGY_PRESETS.covered_call,
-  currentPrice: number,
+  _currentPrice: number,
 ): number {
   let score = 100;
   
@@ -133,7 +133,7 @@ function scoreContract(
 export function SmartContractPicker({
   contracts,
   currentPrice,
-  symbol,
+  symbol: _symbol,
   strategy,
   onSelect,
 }: SmartContractPickerProps) {
@@ -338,7 +338,7 @@ export function SmartContractPicker({
               </button>
             </div>
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {topPicks.slice(1).map((contract, i) => (
+              {topPicks.slice(1).map((contract) => (
                 <div
                   key={contract.symbol}
                   className="flex items-center justify-between p-2 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors cursor-pointer"

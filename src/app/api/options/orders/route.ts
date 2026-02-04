@@ -4,8 +4,6 @@ import {
   parseOptionSymbol,
   canSellCoveredCall,
   canSellCashSecuredPut,
-  closeOptionsPosition,
-  getClosingSide,
 } from '@/lib/alpaca-options';
 import { getPositions, getAccount } from '@/lib/alpaca';
 import { withAuth } from '@/lib/api-auth';

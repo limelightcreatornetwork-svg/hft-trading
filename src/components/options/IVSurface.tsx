@@ -95,7 +95,7 @@ function IVSmile({
             <path
               d={[
                 'M',
-                ...expirationData.filter(d => d.strike <= currentPrice).map((d, i, arr) => {
+                ...expirationData.filter(d => d.strike <= currentPrice).map((d) => {
                   const x = ((d.strike - minStrike) / strikeRange) * 100;
                   const y = ((maxIV - d.iv) / ivRange) * 100;
                   return `${x}% ${y}%`;
@@ -111,7 +111,7 @@ function IVSmile({
             <path
               d={[
                 'M',
-                ...expirationData.filter(d => d.strike >= currentPrice).map((d, i, arr) => {
+                ...expirationData.filter(d => d.strike >= currentPrice).map((d) => {
                   const x = ((d.strike - minStrike) / strikeRange) * 100;
                   const y = ((maxIV - d.iv) / ivRange) * 100;
                   return `${x}% ${y}%`;
@@ -282,7 +282,7 @@ function TermStructure({ data, currentPrice }: { data: IVDataPoint[]; currentPri
             <path
               d={[
                 'M',
-                ...termStructure.map((d, i) => {
+                ...termStructure.map((d) => {
                   const x = (d.dte / maxDTE) * 100;
                   const y = ((maxIV - d.atmIV) / ivRange) * 100;
                   return `${x}% ${y}%`;

@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
           const result = await detector.detect();
           addToHistory(result);
           return result;
-        } catch (error) {
+        } catch (_error) {
           return {
             symbol,
             error: 'Detection failed',

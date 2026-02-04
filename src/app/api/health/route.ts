@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     if (dbLatency >= 1000) {
       overallStatus = 'degraded';
     }
-  } catch (error) {
+  } catch (_error) {
     checks.push({
       name: 'database',
       status: 'fail',

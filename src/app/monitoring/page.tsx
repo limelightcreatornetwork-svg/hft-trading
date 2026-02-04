@@ -9,7 +9,6 @@ import {
   Database,
   Clock,
   TrendingUp,
-  TrendingDown,
   AlertTriangle,
   CheckCircle,
   RefreshCw,

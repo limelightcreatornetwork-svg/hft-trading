@@ -16,7 +16,6 @@ import {
   createOCORule,
   cancelRule,
   toggleRule,
-  RuleType,
   TriggerType,
 } from '@/lib/automation';
 

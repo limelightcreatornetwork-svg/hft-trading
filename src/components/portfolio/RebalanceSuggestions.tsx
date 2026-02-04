@@ -48,7 +48,7 @@ function getActionBadge(action: string): { label: string; variant: 'default' | '
   }
 }
 
-export function RebalanceSuggestions({ suggestions, portfolioValue, loading }: RebalanceSuggestionsProps) {
+export function RebalanceSuggestions({ suggestions, portfolioValue: _portfolioValue, loading }: RebalanceSuggestionsProps) {
   if (loading) {
     return (
       <Card>

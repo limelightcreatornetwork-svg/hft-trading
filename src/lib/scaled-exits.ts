@@ -234,8 +234,6 @@ export async function monitorScaledExits(): Promise<ScaledExitMonitorResult> {
     const currentPrice = prices[plan.symbol];
     if (!currentPrice) continue;
     
-    // Note: position could be used for validation but is kept for future enhancement
-    const _position = positionMap.get(plan.symbol);
     const currentProfitPct = ((currentPrice - plan.entryPrice) / plan.entryPrice) * 100;
     
     // Check each untriggered target

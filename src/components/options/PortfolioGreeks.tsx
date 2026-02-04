@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ interface OptionPosition {
   marketValue: number;
   unrealizedPL: number;
   underlying?: string;
+  underlyingPrice?: number;
   optionType?: 'call' | 'put';
   strike?: number;
   expiration?: string;
@@ -29,18 +30,84 @@ interface PortfolioGreeksProps {
   showDetails?: boolean;
 }
 
+/**
+ * Estimated beta values for common stocks relative to SPY.
+ * These are approximate values - in production, you'd fetch real-time betas.
+ */
+const STOCK_BETAS: Record<string, number> = {
+  // Mega-caps tend to move with market
+  AAPL: 1.2,
+  MSFT: 1.1,
+  GOOGL: 1.15,
+  GOOG: 1.15,
+  AMZN: 1.25,
+  META: 1.35,
+  NVDA: 1.65,
+  TSLA: 1.80,
+  
+  // Tech stocks
+  AMD: 1.70,
+  INTC: 1.10,
+  CRM: 1.20,
+  ADBE: 1.15,
+  NFLX: 1.40,
+  
+  // Financial stocks
+  JPM: 1.15,
+  BAC: 1.35,
+  GS: 1.30,
+  MS: 1.35,
+  
+  // Energy stocks
+  XOM: 0.90,
+  CVX: 1.00,
+  
+  // Consumer stocks
+  WMT: 0.55,
+  KO: 0.60,
+  PEP: 0.65,
+  MCD: 0.70,
+  
+  // Healthcare
+  JNJ: 0.65,
+  PFE: 0.75,
+  UNH: 0.85,
+  
+  // ETFs
+  SPY: 1.00,
+  QQQ: 1.10,
+  IWM: 1.15,
+  
+  // Default for unknown stocks
+  DEFAULT: 1.00,
+};
+
+/**
+ * Get the beta for a stock symbol
+ */
+function getStockBeta(symbol: string): number {
+  return STOCK_BETAS[symbol.toUpperCase()] ?? STOCK_BETAS.DEFAULT;
+}
+
 export function PortfolioGreeks({ positions: propPositions, showDetails = true }: PortfolioGreeksProps) {
   const [positions, setPositions] = useState<OptionPosition[]>(propPositions || []);
   const [loading, setLoading] = useState(!propPositions);
   const [expanded, setExpanded] = useState(false);
+  const [spyPrice, setSpyPrice] = useState<number>(500); // Default SPY price
 
-  useEffect(() => {
-    if (!propPositions) {
-      fetchPositionsWithGreeks();
+  const fetchSpyPrice = useCallback(async () => {
+    try {
+      const res = await fetch('/api/quote?symbol=SPY');
+      const data = await res.json();
+      if (data.success && data.data?.price) {
+        setSpyPrice(data.data.price);
+      }
+    } catch (e) {
+      console.warn('Could not fetch SPY price:', e);
     }
-  }, [propPositions]);
+  }, []);
 
-  const fetchPositionsWithGreeks = async () => {
+  const fetchPositionsWithGreeks = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch('/api/positions');
@@ -93,7 +160,14 @@ export function PortfolioGreeks({ positions: propPositions, showDetails = true }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchSpyPrice();
+    if (!propPositions) {
+      fetchPositionsWithGreeks();
+    }
+  }, [propPositions, fetchSpyPrice, fetchPositionsWithGreeks]);
 
   // Calculate portfolio-level Greeks
   const contractSize = 100;
@@ -114,8 +188,33 @@ export function PortfolioGreeks({ positions: propPositions, showDetails = true }
     { delta: 0, gamma: 0, theta: 0, vega: 0, totalValue: 0, totalPL: 0 }
   );
 
-  // TODO: Calculate beta-weighted delta (would need SPY price for proper calculation)
-  // const betaWeightedDelta = portfolioGreeks.delta;
+  /**
+   * Calculate Beta-Weighted Delta
+   * 
+   * This normalizes all positions to SPY-equivalent delta, which helps
+   * understand your true market exposure across different underlyings.
+   * 
+   * Formula: Σ (Position Delta × Underlying Price × Beta / SPY Price)
+   * 
+   * Note: For options, we use the strike as a proxy for underlying price
+   * when the actual underlying price isn't available.
+   */
+  const betaWeightedDelta = positions.reduce((acc, pos) => {
+    if (!pos.greeks) return acc;
+    
+    const underlying = pos.underlying || 'SPY';
+    const beta = getStockBeta(underlying);
+    const qty = pos.side === 'long' ? pos.quantity : -pos.quantity;
+    const positionDelta = pos.greeks.delta * qty * contractSize;
+    
+    // Use underlying price if available, otherwise use strike as proxy
+    const underlyingPrice = pos.underlyingPrice || pos.strike || 100;
+    
+    // Beta-weighted delta normalized to SPY
+    const bwDelta = (positionDelta * underlyingPrice * beta) / spyPrice;
+    
+    return acc + bwDelta;
+  }, 0);
 
   // Risk assessment
   const getRiskLevel = () => {
@@ -173,7 +272,7 @@ export function PortfolioGreeks({ positions: propPositions, showDetails = true }
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Main Greeks Display */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-5 gap-3">
           {/* Delta */}
           <div className="bg-gray-800 rounded-lg p-3 text-center">
             <div className="text-xs text-gray-400 mb-1">Net Delta</div>
@@ -181,6 +280,15 @@ export function PortfolioGreeks({ positions: propPositions, showDetails = true }
               {portfolioGreeks.delta >= 0 ? '+' : ''}{portfolioGreeks.delta.toFixed(0)}
             </div>
             <div className="text-[10px] text-gray-500">shares equiv.</div>
+          </div>
+
+          {/* Beta-Weighted Delta */}
+          <div className="bg-gray-800 rounded-lg p-3 text-center border border-yellow-500/30">
+            <div className="text-xs text-yellow-400 mb-1">β-Weighted Δ</div>
+            <div className={`text-xl font-bold ${betaWeightedDelta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {betaWeightedDelta >= 0 ? '+' : ''}{betaWeightedDelta.toFixed(0)}
+            </div>
+            <div className="text-[10px] text-gray-500">SPY equiv.</div>
           </div>
 
           {/* Gamma */}
@@ -222,6 +330,15 @@ export function PortfolioGreeks({ positions: propPositions, showDetails = true }
               <span>
                 {portfolioGreeks.delta > 0 ? 'Bullish' : portfolioGreeks.delta < 0 ? 'Bearish' : 'Neutral'} bias 
                 ({Math.abs(portfolioGreeks.delta).toFixed(0)} share equivalent)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-400">🎯</span>
+              <span>
+                SPY-equivalent exposure: {Math.abs(betaWeightedDelta).toFixed(0)} shares
+                <span className="text-gray-500 ml-1">
+                  (β-adjusted, SPY @ ${spyPrice.toFixed(0)})
+                </span>
               </span>
             </div>
             <div className="flex items-center gap-2">

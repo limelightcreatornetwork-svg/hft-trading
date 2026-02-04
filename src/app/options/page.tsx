@@ -52,10 +52,10 @@ export default function OptionsPage() {
   const [account, setAccount] = useState<AccountData | null>(null);
   const [activeTab, setActiveTab] = useState<'chain' | 'positions' | 'strategies' | 'analysis'>('chain');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [chainData, setChainData] = useState<Array<{ strike: number; expiration: string; iv: number; type: 'call' | 'put'; delta?: number }>>([]);
-  const [underlyingPrice, setUnderlyingPrice] = useState<number>(100);
+  const [chainData] = useState<Array<{ strike: number; expiration: string; iv: number; type: 'call' | 'put'; delta?: number }>>([]);
+  const [underlyingPrice] = useState<number>(100);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('');
-  const [selectedStrategy, setSelectedStrategy] = useState<'covered_call' | 'csp' | 'long_call' | 'long_put' | 'custom'>('covered_call');
+  const [selectedStrategy] = useState<'covered_call' | 'csp' | 'long_call' | 'long_put' | 'custom'>('covered_call');
 
   // Fetch account and positions data
   useEffect(() => {
@@ -318,7 +318,7 @@ export default function OptionsPage() {
               currentPrice={underlyingPrice}
               symbol={selectedSymbol || 'SPY'}
               strategy={selectedStrategy}
-              onSelect={(contract) => {
+              onSelect={() => {
                 // Navigate to chain and select this contract
                 setActiveTab('chain');
               }}

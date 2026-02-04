@@ -180,7 +180,6 @@ export function useRealTimePrice(symbol: string) {
 
     const history = service.getPriceHistory(upperSymbol);
     if (history) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial state from service cache
       setPriceHistory(history.prices);
     }
 

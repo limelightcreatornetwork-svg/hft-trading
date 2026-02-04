@@ -172,12 +172,10 @@ describe('Notification Types', () => {
     it('should handle short position P&L correctly', () => {
       const entryPrice = 100;
       const currentPrice = 107;
-      const side = 'short';
-      
-      const pnlPct = side === 'long'
-        ? ((currentPrice - entryPrice) / entryPrice) * 100
-        : ((entryPrice - currentPrice) / entryPrice) * 100;
-      
+
+      // Short P&L: profit when price drops, loss when price rises
+      const pnlPct = ((entryPrice - currentPrice) / entryPrice) * 100;
+
       // Short at 100, now at 107 = -7% loss
       expect(pnlPct).toBeCloseTo(-7);
     });

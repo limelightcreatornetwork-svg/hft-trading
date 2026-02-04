@@ -155,6 +155,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Portfolio optimizer tests | 37 | 2026-02-04 |
 | Formatters module tests | 38 | 2026-02-04 |
 | API helpers module tests | 39 | 2026-02-04 |
+| Volatility-adjusted regime detection | 40 | 2026-02-04 |
 
 ---
 
@@ -339,13 +340,13 @@ Added a complete risk management system with 5 integrated components:
 ## Notes
 
 ### Code Quality Metrics (Updated 2026-02-04)
-- **Test Coverage**: 976 tests across 36 test suites
+- **Test Coverage**: 994 tests across 36 test suites
 - **Lint Status**: 0 errors, 58 warnings (mostly unused vars in tests)
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on critical endpoints
 - **Observability**: Audit logging + health checks
 - **Error Handling**: Error boundaries + graceful failures
-- **Recent Additions**: API helpers tests (+36 tests)
+- **Recent Additions**: Volatility-adjusted regime detection (+18 tests)
 
 ### Architecture
 ```
