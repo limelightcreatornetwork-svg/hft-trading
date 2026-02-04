@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { checkIntent } from '@/lib/risk-engine';
 import { submitOrder } from '@/lib/alpaca';
 import { withAuth } from '@/lib/api-auth';
 import { logAudit } from '@/lib/audit-log';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 import {
   validateSymbol,
   validateSide,
@@ -33,22 +34,13 @@ export const GET = withAuth(async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        intents,
-        count: intents.length,
-      },
+    return apiSuccess({
+      intents,
+      count: intents.length,
     });
   } catch (error) {
     console.error('Intents GET API error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch intents' 
-      },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch intents');
   }
 });
 
@@ -60,44 +52,29 @@ export const POST = withAuth(async function POST(request: NextRequest) {
     // Validate required fields with proper type checking
     const symbolResult = validateSymbol(body.symbol);
     if (!symbolResult.valid) {
-      return NextResponse.json(
-        { success: false, error: symbolResult.error },
-        { status: 400 }
-      );
+      return apiError(symbolResult.error!, 400);
     }
 
     const sideResult = validateSide(body.side?.toLowerCase?.());
     if (!sideResult.valid) {
-      return NextResponse.json(
-        { success: false, error: sideResult.error },
-        { status: 400 }
-      );
+      return apiError(sideResult.error!, 400);
     }
 
     const quantityResult = validatePositiveNumber(body.quantity, 'quantity', { integer: true });
     if (!quantityResult.valid) {
-      return NextResponse.json(
-        { success: false, error: quantityResult.error },
-        { status: 400 }
-      );
+      return apiError(quantityResult.error!, 400);
     }
 
     const orderTypeResult = validateOrderType(body.orderType?.toLowerCase?.());
     if (!orderTypeResult.valid) {
-      return NextResponse.json(
-        { success: false, error: orderTypeResult.error },
-        { status: 400 }
-      );
+      return apiError(orderTypeResult.error!, 400);
     }
 
     // Validate limitPrice is required for limit orders
     if (orderTypeResult.value === 'limit') {
       const limitPriceResult = validatePositiveNumber(limitPrice, 'limitPrice');
       if (!limitPriceResult.valid) {
-        return NextResponse.json(
-          { success: false, error: 'limitPrice is required for limit orders' },
-          { status: 400 }
-        );
+        return apiError('limitPrice is required for limit orders', 400);
       }
     }
 
@@ -220,26 +197,17 @@ export const POST = withAuth(async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        intent: updatedIntent,
-        riskCheck: {
-          approved: riskResult.approved,
-          reason: riskResult.reason,
-          checks: riskResult.checks,
-        },
-        order: orderResult,
+    return apiSuccess({
+      intent: updatedIntent,
+      riskCheck: {
+        approved: riskResult.approved,
+        reason: riskResult.reason,
+        checks: riskResult.checks,
       },
+      order: orderResult,
     });
   } catch (error) {
     console.error('Intents POST API error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to create intent'
-      },
-      { status: 500 }
-    );
+    return apiError('Failed to create intent');
   }
 });

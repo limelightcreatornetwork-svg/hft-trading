@@ -1,19 +1,29 @@
 /**
- * Market Regime Detection System
- * 
- * Classifies market conditions into 4 regimes:
- * - CHOP: Range-bound, mean-reverting (fade breakouts)
- * - TREND: Strong directional move (ride momentum)  
- * - VOL_EXPANSION: Volatility spike (reduce size, widen stops)
- * - UNTRADEABLE: Extreme conditions (stay flat)
+ * Alpaca-Based Regime Detection
+ *
+ * This module wraps the Alpaca market-data API to provide a high-level,
+ * cached regime-detection interface.  It is used by modules that need a
+ * simple `detectRegimeCached(symbol)` call without preparing
+ * `MarketDataInput` themselves (e.g. confidence scoring, risk engine,
+ * the /api/regime route).
+ *
+ * The pure-computation regime detector lives in ./regimeDetector.ts and
+ * operates on pre-built `MarketDataInput`.  This file complements it by
+ * handling data fetching, caching, and singleton management.
  */
 
-import alpaca from './alpaca';
-import { REGIME_THRESHOLDS, TA_PERIODS } from './constants';
+import alpaca from '../alpaca';
+import { REGIME_THRESHOLDS, TA_PERIODS } from '../constants';
+
+// ---------------------------------------------------------------------------
+// Types – kept for backward compatibility with consumers that import
+// `RegimeType`, `RegimeResult` (old shape), `RegimeMetrics`, `Bar` from
+// `@/lib/regime`.
+// ---------------------------------------------------------------------------
 
 export type RegimeType = 'CHOP' | 'TREND' | 'VOL_EXPANSION' | 'UNTRADEABLE';
 
-export interface RegimeResult {
+export interface AlpacaRegimeResult {
   regime: RegimeType;
   confidence: number; // 0-1
   timestamp: string;
@@ -47,7 +57,11 @@ export interface Bar {
 // Use centralized thresholds from constants.ts
 const THRESHOLDS = REGIME_THRESHOLDS;
 
-export class RegimeDetector {
+// ---------------------------------------------------------------------------
+// AlpacaRegimeDetector – fetches data from Alpaca and classifies regime
+// ---------------------------------------------------------------------------
+
+export class AlpacaRegimeDetector {
   private symbol: string;
   private lookbackPeriod: number;
   private atrPeriod: number;
@@ -78,7 +92,7 @@ export class RegimeDetector {
           feed: 'iex',
         }
       );
-      
+
       const barArray: Bar[] = [];
       for await (const bar of bars) {
         barArray.push({
@@ -123,12 +137,12 @@ export class RegimeDetector {
     if (bars.length < this.atrPeriod + 1) return 0;
 
     const trueRanges: number[] = [];
-    
+
     for (let i = 1; i < bars.length; i++) {
       const high = bars[i].HighPrice;
       const low = bars[i].LowPrice;
       const prevClose = bars[i - 1].ClosePrice;
-      
+
       const tr = Math.max(
         high - low,
         Math.abs(high - prevClose),
@@ -140,7 +154,7 @@ export class RegimeDetector {
     // Calculate ATR as EMA of true ranges
     let atr = trueRanges.slice(0, this.atrPeriod).reduce((a, b) => a + b, 0) / this.atrPeriod;
     const multiplier = 2 / (this.atrPeriod + 1);
-    
+
     for (let i = this.atrPeriod; i < trueRanges.length; i++) {
       atr = (trueRanges[i] - atr) * multiplier + atr;
     }
@@ -163,7 +177,7 @@ export class RegimeDetector {
     const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
     const squaredDiffs = returns.map(r => Math.pow(r - mean, 2));
     const variance = squaredDiffs.reduce((a, b) => a + b, 0) / returns.length;
-    
+
     return Math.sqrt(variance) * 100; // Convert to percentage
   }
 
@@ -225,7 +239,7 @@ export class RegimeDetector {
         dx.push(0);
         continue;
       }
-      
+
       const diP = (smoothPlusDM[i] / smoothTR[i]) * 100;
       const diM = (smoothMinusDM[i] / smoothTR[i]) * 100;
       diPlus.push(diP);
@@ -249,7 +263,7 @@ export class RegimeDetector {
    */
   private wilderSmooth(data: number[], period: number): number[] {
     if (data.length < period) return [];
-    
+
     const result: number[] = [];
     let sum = data.slice(0, period).reduce((a, b) => a + b, 0);
     result.push(sum);
@@ -270,9 +284,9 @@ export class RegimeDetector {
 
     const n = bars.length;
     const prices = bars.map(b => b.ClosePrice);
-    
+
     let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-    
+
     for (let i = 0; i < n; i++) {
       sumX += i;
       sumY += prices[i];
@@ -281,7 +295,7 @@ export class RegimeDetector {
     }
 
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    
+
     // Normalize by average price to get percentage slope per bar
     const avgPrice = sumY / n;
     return (slope / avgPrice) * 100;
@@ -317,7 +331,7 @@ export class RegimeDetector {
 
     const lastPrice = bars[bars.length - 1].ClosePrice;
     const atr = this.calculateATR(bars);
-    
+
     // Calculate spread as percentage
     let spreadPercent = 0;
     if (quote.bid > 0 && quote.ask > 0) {
@@ -402,7 +416,7 @@ export class RegimeDetector {
   /**
    * Main detection method - returns full regime analysis
    */
-  async detect(): Promise<RegimeResult> {
+  async detect(): Promise<AlpacaRegimeResult> {
     const metrics = await this.calculateMetrics();
     const { regime, confidence, recommendation } = this.classifyRegime(metrics);
 
@@ -417,14 +431,62 @@ export class RegimeDetector {
   }
 }
 
-// Singleton for common symbols
-const detectorCache: Map<string, RegimeDetector> = new Map();
+// ---------------------------------------------------------------------------
+// Caching layer – avoids redundant Alpaca API calls when multiple modules
+// request regime data in quick succession.
+// ---------------------------------------------------------------------------
 
-export function getRegimeDetector(symbol: string = 'SPY'): RegimeDetector {
+const REGIME_CACHE_TTL_MS = 5 * 60 * 1000; // 5-minute TTL
+const regimeResultCache: Map<string, { result: AlpacaRegimeResult; timestamp: number }> = new Map();
+
+/**
+ * Get a cached regime result if still valid, otherwise return null
+ */
+function getCachedResult(symbol: string): AlpacaRegimeResult | null {
+  const cached = regimeResultCache.get(symbol);
+  if (cached && Date.now() - cached.timestamp < REGIME_CACHE_TTL_MS) {
+    return cached.result;
+  }
+  return null;
+}
+
+/**
+ * Store a regime result in the cache
+ */
+function setCachedResult(symbol: string, result: AlpacaRegimeResult): void {
+  regimeResultCache.set(symbol, { result, timestamp: Date.now() });
+}
+
+/**
+ * Detect regime with caching. Avoids redundant Alpaca API calls
+ * when multiple confidence scores are calculated in quick succession.
+ */
+export async function detectRegimeCached(symbol: string): Promise<AlpacaRegimeResult> {
+  const cached = getCachedResult(symbol);
+  if (cached) return cached;
+
+  const detector = getRegimeDetector(symbol);
+  const result = await detector.detect();
+  setCachedResult(symbol, result);
+  return result;
+}
+
+/**
+ * Clear the regime result cache (for testing or manual refresh)
+ */
+export function clearRegimeCache(): void {
+  regimeResultCache.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Singleton management – one AlpacaRegimeDetector per symbol
+// ---------------------------------------------------------------------------
+
+const detectorCache: Map<string, AlpacaRegimeDetector> = new Map();
+
+export function getRegimeDetector(symbol: string = 'SPY'): AlpacaRegimeDetector {
   if (!detectorCache.has(symbol)) {
-    detectorCache.set(symbol, new RegimeDetector(symbol));
+    detectorCache.set(symbol, new AlpacaRegimeDetector(symbol));
   }
   return detectorCache.get(symbol)!;
 }
-
-export default RegimeDetector;

@@ -5,6 +5,9 @@
  * - Security monitoring (unauthorized access attempts)
  * - Compliance (regulatory requirements)
  * - Debugging (trace issues back to source)
+ *
+ * Uses direct database writes for reliability - each audit entry is
+ * immediately persisted to prevent data loss on crashes or restarts.
  */
 
 import { prisma } from './db';
@@ -41,83 +44,41 @@ export interface AuditEntry {
 }
 
 /**
- * In-memory buffer for high-frequency logging
- * Flushes to database periodically
- */
-const auditBuffer: AuditEntry[] = [];
-let flushTimeout: NodeJS.Timeout | null = null;
-const FLUSH_INTERVAL_MS = 5000; // Flush every 5 seconds
-const MAX_BUFFER_SIZE = 100; // Flush when buffer reaches this size
-
-/**
  * Log an audit event
+ *
+ * Writes directly to the database for reliability.
+ * Uses fire-and-forget pattern - call sites don't need to await.
+ * On failure, logs to console as backup (audit data is never silently lost).
  */
 export async function logAudit(entry: AuditEntry): Promise<void> {
-  const fullEntry = {
-    ...entry,
-    timestamp: new Date().toISOString(),
-  };
-
-  // Add to buffer
-  auditBuffer.push(fullEntry);
-
   // Console log for immediate visibility in development
   if (process.env.NODE_ENV === 'development') {
-    console.log(`[AUDIT] ${entry.action}`, JSON.stringify(fullEntry, null, 2));
+    console.log(`[AUDIT] ${entry.action}`, JSON.stringify(entry, null, 2));
   }
-
-  // Schedule or trigger flush
-  if (auditBuffer.length >= MAX_BUFFER_SIZE) {
-    await flushAuditBuffer();
-  } else if (!flushTimeout) {
-    flushTimeout = setTimeout(() => flushAuditBuffer(), FLUSH_INTERVAL_MS);
-  }
-}
-
-/**
- * Flush the audit buffer to database
- */
-async function flushAuditBuffer(): Promise<void> {
-  if (flushTimeout) {
-    clearTimeout(flushTimeout);
-    flushTimeout = null;
-  }
-
-  if (auditBuffer.length === 0) return;
-
-  const entries = [...auditBuffer];
-  auditBuffer.length = 0;
 
   try {
-    // Batch insert to database
-    await prisma.auditLog.createMany({
-      data: entries.map((e) => ({
-        action: e.action,
-        userId: e.userId,
-        clientId: e.clientId,
-        symbol: e.symbol,
-        orderId: e.orderId,
-        intentId: e.intentId,
-        positionId: e.positionId,
-        details: e.details ? JSON.stringify(e.details) : null,
-        ipAddress: e.ipAddress,
-        userAgent: e.userAgent,
-      })),
+    await prisma.auditLog.create({
+      data: {
+        action: entry.action,
+        userId: entry.userId,
+        clientId: entry.clientId,
+        symbol: entry.symbol,
+        orderId: entry.orderId,
+        intentId: entry.intentId,
+        positionId: entry.positionId,
+        details: entry.details ? JSON.stringify(entry.details) : null,
+        ipAddress: entry.ipAddress,
+        userAgent: entry.userAgent,
+      },
     });
   } catch (error) {
-    // Log to console if database fails - don't lose audit data
-    console.error('[AUDIT] Failed to flush to database:', error);
-    entries.forEach((e) => {
-      console.log(`[AUDIT-BACKUP] ${e.action}`, JSON.stringify(e));
-    });
+    // Log to console if database fails - never silently lose audit data
+    console.error('[AUDIT] Failed to write to database:', error);
+    console.log(`[AUDIT-BACKUP] ${entry.action}`, JSON.stringify({
+      ...entry,
+      timestamp: new Date().toISOString(),
+    }));
   }
-}
-
-/**
- * Force flush on shutdown
- */
-export async function shutdownAuditLog(): Promise<void> {
-  await flushAuditBuffer();
 }
 
 /**

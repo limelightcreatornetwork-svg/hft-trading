@@ -12,13 +12,6 @@ alpaca:
   # ALPACA_PAPER_API_KEY, ALPACA_PAPER_API_SECRET (paper)
   # ALPACA_API_KEY, ALPACA_API_SECRET (live)
 
-# Kalshi Configuration
-kalshi:
-  environment: demo  # demo or production
-  # Credentials loaded from environment:
-  # KALSHI_DEMO_EMAIL, KALSHI_DEMO_PASSWORD (demo)
-  # KALSHI_EMAIL, KALSHI_PASSWORD (production)
-
 # Risk Limits
 risk:
   # Order limits
@@ -69,7 +62,6 @@ logging:
 # Rate Limiting
 rate_limits:
   alpaca_requests_per_minute: 200
-  kalshi_requests_per_second: 10
 
 # Trading Hours (ET)
 trading_hours:

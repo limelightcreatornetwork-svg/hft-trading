@@ -5,8 +5,6 @@ These tests require real API credentials to run.
 Set environment variables before running:
 - ALPACA_PAPER_API_KEY
 - ALPACA_PAPER_API_SECRET
-- KALSHI_DEMO_EMAIL
-- KALSHI_DEMO_PASSWORD
 
 Run with: pytest tests/test_integration.py -v -s --integration
 """
@@ -133,61 +131,6 @@ class TestAlpacaIntegration:
         assert elapsed < 5.0
 
 
-class TestKalshiIntegration:
-    """Integration tests for Kalshi broker."""
-    
-    @pytest.fixture
-    async def kalshi_client(self):
-        from src.brokers.kalshi import KalshiClient, KalshiConfig, KalshiEnvironment
-        
-        email = os.environ.get("KALSHI_DEMO_EMAIL")
-        password = os.environ.get("KALSHI_DEMO_PASSWORD")
-        
-        if not email or not password:
-            pytest.skip("Kalshi credentials not configured")
-        
-        config = KalshiConfig(
-            email=email,
-            password=password,
-            environment=KalshiEnvironment.DEMO,
-        )
-        client = KalshiClient(config)
-        await client.authenticate()
-        yield client
-        await client.close()
-    
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_get_balance(self, kalshi_client):
-        """Test getting account balance."""
-        balance = await kalshi_client.get_balance()
-        
-        assert "balance" in balance
-        print(f"Balance: ${balance['balance'] / 100:.2f}")
-    
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_get_markets(self, kalshi_client):
-        """Test getting available markets."""
-        markets = await kalshi_client.get_markets(limit=5)
-        
-        assert "markets" in markets
-        assert len(markets["markets"]) > 0
-        
-        for market in markets["markets"]:
-            assert "ticker" in market
-            print(f"Market: {market['ticker']}")
-    
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_get_positions(self, kalshi_client):
-        """Test getting positions."""
-        positions = await kalshi_client.get_positions()
-        
-        assert "market_positions" in positions
-        print(f"Kalshi positions: {len(positions['market_positions'])}")
-
-
 class TestToolsIntegration:
     """Integration tests for agent tools."""
     
@@ -308,8 +251,7 @@ class TestStatusMonitor:
         results = await monitor.check_all()
         
         assert "alpaca" in results
-        assert "kalshi" in results
-        
+
         print("\nService Status:")
         for service, health in results.items():
             status_emoji = "✓" if health.is_healthy else "✗"

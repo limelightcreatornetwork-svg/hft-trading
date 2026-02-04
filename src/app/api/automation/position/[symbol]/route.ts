@@ -75,7 +75,7 @@ export const GET = withAuth(async function GET(
   } catch (error) {
     console.error('Position automation GET error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to fetch position automation' },
+      { success: false, error: 'Failed to fetch position automation' },
       { status: 500 }
     );
   }
@@ -263,7 +263,7 @@ export const POST = withAuth(async function POST(
   } catch (error) {
     console.error('Position automation POST error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to setup position automation' },
+      { success: false, error: 'Failed to setup position automation' },
       { status: 500 }
     );
   }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOrders, submitOrder, cancelOrder } from '@/lib/alpaca';
 import { checkIntent } from '@/lib/risk-engine';
 import { withAuth } from '@/lib/api-auth';
+import { formatAlpacaOrder } from '@/lib/formatters';
 import {
   validateSymbol,
   validateSide,
@@ -21,27 +22,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
     
     const orders = await getOrders(status);
     
-    const formattedOrders = orders.map(order => ({
-      id: order.id,
-      clientOrderId: order.client_order_id,
-      symbol: order.symbol,
-      assetClass: order.asset_class,
-      quantity: parseFloat(order.qty),
-      filledQuantity: parseFloat(order.filled_qty),
-      type: order.type,
-      side: order.side,
-      timeInForce: order.time_in_force,
-      limitPrice: order.limit_price ? parseFloat(order.limit_price) : null,
-      stopPrice: order.stop_price ? parseFloat(order.stop_price) : null,
-      filledAvgPrice: order.filled_avg_price ? parseFloat(order.filled_avg_price) : null,
-      status: order.status,
-      extendedHours: order.extended_hours,
-      createdAt: order.created_at,
-      updatedAt: order.updated_at,
-      submittedAt: order.submitted_at,
-      filledAt: order.filled_at,
-      canceledAt: order.canceled_at,
-    }));
+    const formattedOrders = orders.map(formatAlpacaOrder);
 
     return NextResponse.json({
       success: true,
@@ -55,7 +36,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch orders'
+        error: 'Failed to fetch orders'
       },
       { status: 500 }
     );
@@ -178,7 +159,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to submit order'
+        error: 'Failed to submit order'
       },
       { status: 500 }
     );
@@ -208,7 +189,7 @@ export const DELETE = withAuth(async function DELETE(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to cancel order'
+        error: 'Failed to cancel order'
       },
       { status: 500 }
     );

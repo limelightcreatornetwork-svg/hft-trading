@@ -134,12 +134,10 @@ class PortfolioTool:
     def __init__(
         self,
         alpaca_client=None,
-        kalshi_client=None,
         risk_engine=None,
         journal_tool=None,
     ):
         self.alpaca = alpaca_client
-        self.kalshi = kalshi_client
         self.risk_engine = risk_engine
         self.journal = journal_tool
         
@@ -387,26 +385,6 @@ class PortfolioTool:
                 return {"success": False, "error": str(e)}
         
         raise ValueError("No broker client available")
-    
-    # Kalshi portfolio
-    async def get_kalshi_balance(self) -> Dict[str, Decimal]:
-        """Get Kalshi account balance."""
-        if not self.kalshi:
-            raise ValueError("Kalshi client required")
-        
-        data = await self.kalshi.get_balance()
-        return {
-            "balance": Decimal(str(data.get("balance", 0))) / 100,  # Convert cents
-            "available_balance": Decimal(str(data.get("available_balance", 0))) / 100,
-        }
-    
-    async def get_kalshi_positions(self) -> List[Dict]:
-        """Get Kalshi market positions."""
-        if not self.kalshi:
-            raise ValueError("Kalshi client required")
-        
-        data = await self.kalshi.get_positions()
-        return data.get("market_positions", [])
     
     # Utility methods
     def invalidate_cache(self):

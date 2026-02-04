@@ -58,7 +58,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching managed positions:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch positions', details: String(error) },
+      { error: 'Failed to fetch positions' },
       { status: 500 }
     );
   }
@@ -93,7 +93,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error closing position:', error);
     return NextResponse.json(
-      { error: 'Failed to close position', details: String(error) },
+      { error: 'Failed to close position' },
       { status: 500 }
     );
   }

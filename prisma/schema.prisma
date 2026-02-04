@@ -1,6 +1,5 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -21,12 +20,6 @@ model Intent {
   updatedAt   DateTime @updatedAt
   orders      Order[]
   riskChecks  RiskCheck[]
-
-  @@index([symbol])
-  @@index([status])
-  @@index([createdAt])
-  @@index([strategy])
-  @@index([symbol, status])  // Composite: filter by symbol and status
 }
 
 // Risk Check Results
@@ -38,11 +31,6 @@ model RiskCheck {
   passed    Boolean
   details   String?
   createdAt DateTime @default(now())
-
-  @@index([intentId])
-  @@index([checkName])
-  @@index([passed])
-  @@index([createdAt])
 }
 
 // Orders submitted to broker
@@ -62,14 +50,6 @@ model Order {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   fills         Fill[]
-
-  @@index([intentId])
-  @@index([symbol])
-  @@index([status])
-  @@index([createdAt])
-  @@index([side])
-  @@index([symbol, status])        // Composite: orders by symbol and status
-  @@index([symbol, createdAt])     // Composite: recent orders by symbol
 }
 
 // Individual fills
@@ -81,9 +61,6 @@ model Fill {
   price     Float
   timestamp DateTime
   createdAt DateTime @default(now())
-
-  @@index([orderId])
-  @@index([timestamp])
 }
 
 // Current positions
@@ -95,8 +72,6 @@ model Position {
   marketValue  Float?
   unrealizedPL Float?
   updatedAt    DateTime @updatedAt
-
-  @@index([updatedAt])
 }
 
 // Risk configuration
@@ -131,11 +106,6 @@ model OptionsContract {
   createdAt       DateTime @default(now())
   positions       OptionsPosition[]
   orders          OptionsOrder[]
-
-  @@index([underlying])
-  @@index([expiration])
-  @@index([contractType])
-  @@index([underlying, expiration])  // Composite: find options by underlying and expiry
 }
 
 // Options Intent - what the strategy wants to do with options
@@ -154,11 +124,6 @@ model OptionsIntent {
   updatedAt       DateTime @updatedAt
   orders          OptionsOrder[]
   riskChecks      OptionsRiskCheck[]
-
-  @@index([underlying])
-  @@index([status])
-  @@index([createdAt])
-  @@index([strategy])
 }
 
 // Options Risk Check Results
@@ -170,9 +135,6 @@ model OptionsRiskCheck {
   passed    Boolean
   details   String?
   createdAt DateTime       @default(now())
-
-  @@index([intentId])
-  @@index([passed])
 }
 
 // Options Orders
@@ -193,11 +155,6 @@ model OptionsOrder {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   fills           OptionsFill[]
-
-  @@index([intentId])
-  @@index([contractId])
-  @@index([status])
-  @@index([createdAt])
 }
 
 // Options Fills
@@ -209,9 +166,6 @@ model OptionsFill {
   price     Float
   timestamp DateTime
   createdAt DateTime     @default(now())
-
-  @@index([orderId])
-  @@index([timestamp])
 }
 
 // Options Positions with Greeks
@@ -247,9 +201,6 @@ model OptionsGreeksSnapshot {
   impliedVol  Float
   underlyingPrice Float
   timestamp   DateTime        @default(now())
-
-  @@index([positionId])
-  @@index([timestamp])
 }
 
 // Portfolio-level Greeks Summary
@@ -260,8 +211,6 @@ model PortfolioGreeks {
   netTheta    Float
   netVega     Float
   timestamp   DateTime @default(now())
-
-  @@index([timestamp])
 }
 
 // ============================================
@@ -341,10 +290,6 @@ model Strategy {
   backtestResults Json?    // { returns: %, sharpe: n, winRate: % }
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
-  @@index([isActive])
-  @@index([type])
-  @@index([name])
 }
 
 // Watchlist
@@ -355,8 +300,6 @@ model Watchlist {
   notes     Json?    // { "AAPL": "watching for breakout", ... }
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@index([name])
 }
 
 // Analysis Snapshot (daily portfolio metrics)
@@ -521,4 +464,53 @@ model AuditLog {
   @@index([userId])
   @@index([symbol])
   @@index([createdAt])
+}
+
+// ============================================
+// PERFORMANCE MONITORING MODELS
+// ============================================
+
+// API Latency Metrics
+model ApiLatencyMetric {
+  id          String   @id @default(cuid())
+  endpoint    String   // e.g., "/api/orders"
+  method      String   // GET, POST, PUT, DELETE
+  latencyMs   Int      // Response time in milliseconds
+  statusCode  Int      // HTTP status code
+  timestamp   DateTime @default(now())
+
+  @@index([endpoint])
+  @@index([timestamp])
+  @@index([statusCode])
+}
+
+// Database Query Metrics
+model QueryMetric {
+  id          String   @id @default(cuid())
+  operation   String   // e.g., "findMany", "create", "update"
+  model       String   // e.g., "Order", "Position"
+  latencyMs   Int      // Query execution time in milliseconds
+  isSlow      Boolean  @default(false) // True if > 100ms
+  details     String?  // Optional query details (JSON)
+  timestamp   DateTime @default(now())
+
+  @@index([model])
+  @@index([isSlow])
+  @@index([timestamp])
+}
+
+// Order Execution Metrics (hourly aggregates)
+model OrderExecutionMetric {
+  id              String   @id @default(cuid())
+  hourStart       DateTime // Start of the hour
+  submitted       Int      @default(0) // Orders submitted
+  filled          Int      @default(0) // Orders filled
+  cancelled       Int      @default(0) // Orders cancelled
+  rejected        Int      @default(0) // Orders rejected
+  partialFills    Int      @default(0) // Partial fills
+  totalFillTimeMs Int      @default(0) // Total fill time for calculating average
+  timestamp       DateTime @default(now())
+
+  @@unique([hourStart])
+  @@index([hourStart])
 }

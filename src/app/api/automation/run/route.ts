@@ -172,7 +172,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Failed to run automation',
+        error: 'Failed to run automation',
         durationMs: Date.now() - startTime,
       },
       { status: 500 }
@@ -180,7 +180,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
   }
 });
 
-export const GET = withAuth(async function GET() {
+export const GET = withAuth(async function GET(_request) {
   // Return automation status/summary
   try {
     const marketOpen = await isMarketOpen();
@@ -197,7 +197,7 @@ export const GET = withAuth(async function GET() {
   } catch (error) {
     console.error('Automation status error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to get automation status' },
+      { success: false, error: 'Failed to get automation status' },
       { status: 500 }
     );
   }

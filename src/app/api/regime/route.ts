@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getRegimeDetector, RegimeResult } from '@/lib/regime';
+import { getRegimeDetector, AlpacaRegimeResult } from '@/lib/regime';
 
 // In-memory regime history (for backtesting)
 // In production, this would be stored in a database
-const regimeHistory: Map<string, RegimeResult[]> = new Map();
+const regimeHistory: Map<string, AlpacaRegimeResult[]> = new Map();
 const MAX_HISTORY_SIZE = 1000;
 
-function addToHistory(result: RegimeResult) {
+function addToHistory(result: AlpacaRegimeResult) {
   const symbol = result.symbol;
   if (!regimeHistory.has(symbol)) {
     regimeHistory.set(symbol, []);
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Failed to detect regime',
+        error: 'Failed to detect regime',
       },
       { status: 500 }
     );
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         } catch (error) {
           return {
             symbol,
-            error: error instanceof Error ? error.message : 'Detection failed',
+            error: 'Detection failed',
           };
         }
       })
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Batch detection failed',
+        error: 'Batch detection failed',
       },
       { status: 500 }
     );

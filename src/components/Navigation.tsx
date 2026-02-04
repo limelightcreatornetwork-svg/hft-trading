@@ -13,6 +13,7 @@ const navItems = [
   { href: "/strategy", label: "Strategy", icon: "⚡" },
   { href: "/analysis", label: "Analysis", icon: "📈" },
   { href: "/dashboard", label: "Trading", icon: "💹" },
+  { href: "/monitoring", label: "Monitoring", icon: "📡" },
 ];
 
 export default function Navigation() {

@@ -99,6 +99,18 @@ export const DEFAULT_ALLOWED_SYMBOLS = [
   'SPY', 'QQQ', 'NVDA', 'META', 'AMD',
 ] as const;
 
+/**
+ * Default risk configuration used when no DB config exists.
+ * Composed from RISK_DEFAULTS and DEFAULT_ALLOWED_SYMBOLS above.
+ */
+export const DEFAULT_RISK_CONFIG = {
+  maxPositionSize: RISK_DEFAULTS.MAX_POSITION_SIZE,
+  maxOrderSize: RISK_DEFAULTS.MAX_ORDER_SIZE,
+  maxDailyLoss: RISK_DEFAULTS.MAX_DAILY_LOSS,
+  allowedSymbols: [...DEFAULT_ALLOWED_SYMBOLS] as string[],
+  tradingEnabled: RISK_DEFAULTS.TRADING_ENABLED,
+} as const;
+
 // =============================================================================
 // TRADE MANAGEMENT
 // =============================================================================

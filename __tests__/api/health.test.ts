@@ -2,6 +2,8 @@
  * Tests for Health Check Endpoint
  */
 
+import { NextRequest } from 'next/server';
+
 // Mock prisma
 jest.mock('../../src/lib/db', () => ({
   prisma: {
@@ -9,8 +11,19 @@ jest.mock('../../src/lib/db', () => ({
   },
 }));
 
+// Mock api-auth to control authentication
+jest.mock('../../src/lib/api-auth', () => ({
+  authenticateRequest: jest.fn().mockReturnValue({ authenticated: true, clientId: 'test-client' }),
+}));
+
 import { GET } from '../../src/app/api/health/route';
 import { prisma } from '../../src/lib/db';
+import { authenticateRequest } from '../../src/lib/api-auth';
+
+// Helper to create mock NextRequest
+function createMockRequest(url: string = 'http://localhost/api/health'): NextRequest {
+  return new NextRequest(url);
+}
 
 describe('Health Check Endpoint', () => {
   const originalEnv = process.env;
@@ -30,94 +43,148 @@ describe('Health Check Endpoint', () => {
     process.env = originalEnv;
   });
 
-  describe('GET /api/health', () => {
-    it('should return healthy status when all checks pass', async () => {
+  describe('Public Response (no detail param)', () => {
+    it('should return only status and timestamp for public requests', async () => {
       (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ result: 1 }]);
 
-      const response = await GET();
+      const request = createMockRequest();
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.status).toBe('healthy');
-      expect(data.checks).toBeDefined();
-      expect(data.uptime).toBeGreaterThanOrEqual(0);
+      expect(data.success).toBe(true);
+      expect(data.data.status).toBe('healthy');
+      expect(data.data.timestamp).toBeDefined();
+
+      // Should NOT include sensitive details
+      expect(data.data.checks).toBeUndefined();
+      expect(data.data.uptime).toBeUndefined();
+      expect(data.data.environment).toBeUndefined();
+      expect(data.data.version).toBeUndefined();
     });
 
-    it('should include database check', async () => {
-      const response = await GET();
-      const data = await response.json();
-
-      const dbCheck = data.checks.find((c: { name: string }) => c.name === 'database');
-      expect(dbCheck).toBeDefined();
-      expect(dbCheck.status).toBe('pass');
-    });
-
-    it('should include alpaca config check', async () => {
-      const response = await GET();
-      const data = await response.json();
-
-      const alpacaCheck = data.checks.find((c: { name: string }) => c.name === 'alpaca_config');
-      expect(alpacaCheck).toBeDefined();
-      expect(alpacaCheck.status).toBe('pass');
-    });
-
-    it('should include memory check', async () => {
-      const response = await GET();
-      const data = await response.json();
-
-      const memoryCheck = data.checks.find((c: { name: string }) => c.name === 'memory');
-      expect(memoryCheck).toBeDefined();
-      expect(['pass', 'warn']).toContain(memoryCheck.status);
-    });
-
-    it('should include environment check', async () => {
-      const response = await GET();
-      const data = await response.json();
-
-      const envCheck = data.checks.find((c: { name: string }) => c.name === 'environment');
-      expect(envCheck).toBeDefined();
-      expect(envCheck.status).toBe('pass');
-    });
-
-    it('should return unhealthy when database fails', async () => {
+    it('should return unhealthy status when database fails', async () => {
       (prisma.$queryRaw as jest.Mock).mockRejectedValue(new Error('Connection failed'));
 
-      const response = await GET();
+      const request = createMockRequest();
+      const response = await GET(request);
       const data = await response.json();
 
-      expect(data.status).toBe('unhealthy');
+      expect(data.data.status).toBe('unhealthy');
       expect(response.status).toBe(503);
 
-      const dbCheck = data.checks.find((c: { name: string }) => c.name === 'database');
-      expect(dbCheck.status).toBe('fail');
+      // Still should not expose details
+      expect(data.data.checks).toBeUndefined();
     });
 
     it('should return unhealthy when alpaca credentials missing', async () => {
       delete process.env.ALPACA_API_KEY;
 
-      const response = await GET();
+      const request = createMockRequest();
+      const response = await GET(request);
       const data = await response.json();
 
-      expect(data.status).toBe('unhealthy');
+      expect(data.data.status).toBe('unhealthy');
+      expect(data.data.checks).toBeUndefined();
+    });
+  });
 
-      const alpacaCheck = data.checks.find((c: { name: string }) => c.name === 'alpaca_config');
-      expect(alpacaCheck.status).toBe('fail');
+  describe('Authenticated Response (with detail=true)', () => {
+    it('should return full details when authenticated with detail=true', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ result: 1 }]);
+      (authenticateRequest as jest.Mock).mockReturnValue({ authenticated: true, clientId: 'test' });
+
+      const request = createMockRequest('http://localhost/api/health?detail=true');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.status).toBe('healthy');
+      expect(data.data.timestamp).toBeDefined();
+
+      // Should include full details
+      expect(data.data.checks).toBeDefined();
+      expect(data.data.uptime).toBeGreaterThanOrEqual(0);
+      expect(data.data.environment).toBe('test');
+      expect(data.data.version).toBeDefined();
     });
 
-    it('should include timestamp in response', async () => {
-      const response = await GET();
+    it('should include database check in detailed response', async () => {
+      (authenticateRequest as jest.Mock).mockReturnValue({ authenticated: true, clientId: 'test' });
+
+      const request = createMockRequest('http://localhost/api/health?detail=true');
+      const response = await GET(request);
       const data = await response.json();
 
-      expect(data.timestamp).toBeDefined();
-      expect(new Date(data.timestamp).getTime()).toBeGreaterThan(0);
+      const dbCheck = data.data.checks.find((c: { name: string }) => c.name === 'database');
+      expect(dbCheck).toBeDefined();
+      expect(dbCheck.status).toBe('pass');
     });
 
-    it('should include version and environment', async () => {
-      const response = await GET();
+    it('should include alpaca config check in detailed response', async () => {
+      (authenticateRequest as jest.Mock).mockReturnValue({ authenticated: true, clientId: 'test' });
+
+      const request = createMockRequest('http://localhost/api/health?detail=true');
+      const response = await GET(request);
       const data = await response.json();
 
-      expect(data.version).toBeDefined();
-      expect(data.environment).toBe('test');
+      const alpacaCheck = data.data.checks.find((c: { name: string }) => c.name === 'alpaca_config');
+      expect(alpacaCheck).toBeDefined();
+      expect(alpacaCheck.status).toBe('pass');
+    });
+
+    it('should include memory check in detailed response', async () => {
+      (authenticateRequest as jest.Mock).mockReturnValue({ authenticated: true, clientId: 'test' });
+
+      const request = createMockRequest('http://localhost/api/health?detail=true');
+      const response = await GET(request);
+      const data = await response.json();
+
+      const memoryCheck = data.data.checks.find((c: { name: string }) => c.name === 'memory');
+      expect(memoryCheck).toBeDefined();
+      expect(['pass', 'warn']).toContain(memoryCheck.status);
+    });
+
+    it('should include environment check in detailed response', async () => {
+      (authenticateRequest as jest.Mock).mockReturnValue({ authenticated: true, clientId: 'test' });
+
+      const request = createMockRequest('http://localhost/api/health?detail=true');
+      const response = await GET(request);
+      const data = await response.json();
+
+      const envCheck = data.data.checks.find((c: { name: string }) => c.name === 'environment');
+      expect(envCheck).toBeDefined();
+      expect(envCheck.status).toBe('pass');
+    });
+
+    it('should return 401 when detail requested without auth', async () => {
+      const mockAuthError = {
+        authenticated: false,
+        response: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+      };
+      (authenticateRequest as jest.Mock).mockReturnValue(mockAuthError);
+
+      const request = createMockRequest('http://localhost/api/health?detail=true');
+      const response = await GET(request);
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('Status Codes', () => {
+    it('should return 200 for healthy status', async () => {
+      const request = createMockRequest();
+      const response = await GET(request);
+      expect(response.status).toBe(200);
+    });
+
+    it('should return 503 for unhealthy status', async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue(new Error('DB down'));
+
+      const request = createMockRequest();
+      const response = await GET(request);
+      expect(response.status).toBe(503);
     });
   });
 });

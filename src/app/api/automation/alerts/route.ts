@@ -68,7 +68,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
   } catch (error) {
     console.error('GET alerts error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to get alerts' },
+      { success: false, error: 'Failed to get alerts' },
       { status: 500 }
     );
   }
@@ -169,7 +169,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
   } catch (error) {
     console.error('POST alert error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to create alert' },
+      { success: false, error: 'Failed to create alert' },
       { status: 500 }
     );
   }

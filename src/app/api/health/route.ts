@@ -1,14 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { apiSuccess } from '@/lib/api-helpers';
+import { authenticateRequest } from '@/lib/api-auth';
 
 /**
  * GET /api/health
  * Health check endpoint for monitoring and deployment
  *
+ * Two tiers:
+ * - Public (no auth): Returns only { status, timestamp } - safe to expose
+ * - Authenticated (with auth + ?detail=true): Returns full details including
+ *   DB latency, memory usage, env var status, and individual checks
+ *
  * Returns:
  * - status: 'healthy' | 'degraded' | 'unhealthy'
- * - checks: individual component statuses
- * - uptime: server uptime in seconds
+ * - timestamp: ISO timestamp
+ * - (authenticated only) checks: individual component statuses
+ * - (authenticated only) uptime: server uptime in seconds
  */
 
 const startTime = Date.now();
@@ -20,7 +28,7 @@ interface HealthCheck {
   latencyMs?: number;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const checks: HealthCheck[] = [];
   let overallStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
 
@@ -44,7 +52,7 @@ export async function GET() {
     checks.push({
       name: 'database',
       status: 'fail',
-      message: error instanceof Error ? error.message : 'Connection failed',
+      message: 'Connection failed',
     });
     overallStatus = 'unhealthy';
   }
@@ -113,18 +121,40 @@ export async function GET() {
   // Calculate uptime
   const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
 
-  const response = {
+  // Check if detailed response is requested
+  const wantDetail = request.nextUrl.searchParams.get('detail') === 'true';
+
+  // If detail is requested, check authentication
+  if (wantDetail) {
+    const authResult = authenticateRequest(request);
+    if (authResult.authenticated) {
+      // Return full detailed response
+      const responseData = {
+        status: overallStatus,
+        timestamp: new Date().toISOString(),
+        uptime: uptimeSeconds,
+        version: process.env.npm_package_version || '0.1.0',
+        environment: process.env.NODE_ENV || 'development',
+        checks,
+      };
+
+      const httpStatus =
+        overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503;
+
+      return apiSuccess(responseData, httpStatus);
+    }
+    // Not authenticated but requested detail - return auth error
+    return authResult.response;
+  }
+
+  // Public response - only status and timestamp, no sensitive details
+  const publicResponse = {
     status: overallStatus,
     timestamp: new Date().toISOString(),
-    uptime: uptimeSeconds,
-    version: process.env.npm_package_version || '0.1.0',
-    environment: process.env.NODE_ENV || 'development',
-    checks,
   };
 
-  // Return appropriate HTTP status
   const httpStatus =
     overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503;
 
-  return NextResponse.json(response, { status: httpStatus });
+  return apiSuccess(publicResponse, httpStatus);
 }

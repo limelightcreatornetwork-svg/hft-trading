@@ -229,6 +229,151 @@ export async function checkAllPositions(): Promise<AlertCheckResult[]> {
   return results;
 }
 
+/** Alert entry returned by individual check functions */
+interface CheckAlert {
+  type: string;
+  message: string;
+  triggered: boolean;
+}
+
+/**
+ * Check whether the take-profit level has been hit.
+ */
+async function checkTakeProfit(
+  position: ManagedPositionWithAlerts,
+  currentPrice: number,
+  multiplier: number
+): Promise<{ hit: boolean; alert?: CheckAlert }> {
+  const tpHit = multiplier === 1
+    ? currentPrice >= position.takeProfitPrice
+    : currentPrice <= position.takeProfitPrice;
+
+  if (!tpHit) return { hit: false };
+
+  const alert = await createOrUpdateAlert(position.id, 'TP_HIT',
+    `Take profit hit for ${position.symbol}! Price: $${currentPrice.toFixed(2)}, Target: $${position.takeProfitPrice.toFixed(2)}`);
+  if (alert) {
+    await closePosition(position.id, currentPrice, 'TP_HIT');
+    return { hit: true, alert: { type: 'TP_HIT', message: alert.message, triggered: true } };
+  }
+  return { hit: true };
+}
+
+/**
+ * Check whether the stop-loss level has been hit.
+ */
+async function checkStopLoss(
+  position: ManagedPositionWithAlerts,
+  currentPrice: number,
+  multiplier: number
+): Promise<{ hit: boolean; alert?: CheckAlert }> {
+  const slHit = multiplier === 1
+    ? currentPrice <= position.stopLossPrice
+    : currentPrice >= position.stopLossPrice;
+
+  if (!slHit) return { hit: false };
+
+  const alert = await createOrUpdateAlert(position.id, 'SL_HIT',
+    `Stop loss hit for ${position.symbol}! Price: $${currentPrice.toFixed(2)}, Stop: $${position.stopLossPrice.toFixed(2)}`);
+  if (alert) {
+    await closePosition(position.id, currentPrice, 'SL_HIT');
+    return { hit: true, alert: { type: 'SL_HIT', message: alert.message, triggered: true } };
+  }
+  return { hit: true };
+}
+
+/**
+ * Check whether the trailing stop has been triggered.
+ * Also updates the high water mark when the price moves favorably.
+ */
+async function checkTrailingStop(
+  position: ManagedPositionWithAlerts,
+  currentPrice: number,
+  multiplier: number
+): Promise<{ hit: boolean; alert?: CheckAlert }> {
+  if (!position.trailingStopPct || !position.highWaterMark) {
+    return { hit: false };
+  }
+
+  const trailingStopPrice = position.highWaterMark * (1 - multiplier * position.trailingStopPct / 100);
+
+  // Update high water mark if price moved favorably
+  if ((multiplier === 1 && currentPrice > position.highWaterMark) ||
+      (multiplier === -1 && currentPrice < position.highWaterMark)) {
+    await prisma.managedPosition.update({
+      where: { id: position.id },
+      data: { highWaterMark: currentPrice },
+    });
+  }
+
+  const trailingHit = multiplier === 1
+    ? currentPrice <= trailingStopPrice
+    : currentPrice >= trailingStopPrice;
+
+  if (!trailingHit) return { hit: false };
+
+  const alert = await createOrUpdateAlert(position.id, 'TRAILING_TRIGGERED',
+    `Trailing stop triggered for ${position.symbol}! Price: $${currentPrice.toFixed(2)}, Trailing Stop: $${trailingStopPrice.toFixed(2)}`);
+  if (alert) {
+    await closePosition(position.id, currentPrice, 'TRAILING_STOP');
+    return { hit: true, alert: { type: 'TRAILING_TRIGGERED', message: alert.message, triggered: true } };
+  }
+  return { hit: true };
+}
+
+/**
+ * Check whether the time-based stop has been reached, or issue a warning
+ * when less than 1 hour remains.
+ */
+async function checkTimeStop(
+  position: ManagedPositionWithAlerts,
+  currentPrice: number
+): Promise<CheckAlert | null> {
+  if (position.hoursRemaining <= 0) {
+    const alert = await createOrUpdateAlert(position.id, 'TIME_STOP',
+      `Time stop reached for ${position.symbol}! Position held for ${position.timeStopHours} hours without hitting TP or SL.`);
+    if (alert) {
+      await closePosition(position.id, currentPrice, 'TIME_STOP');
+      return { type: 'TIME_STOP', message: alert.message, triggered: true };
+    }
+  } else if (position.hoursRemaining <= 1) {
+    // Warning: less than 1 hour remaining
+    const existingWarning = position.alerts.find(a => a.type === 'TIME_WARNING' && !a.triggered);
+    if (!existingWarning) {
+      await createOrUpdateAlert(position.id, 'TIME_WARNING',
+        `Time stop warning for ${position.symbol}! ${position.hoursRemaining.toFixed(1)} hours remaining.`, false);
+      return {
+        type: 'TIME_WARNING',
+        message: `Less than 1 hour until time stop for ${position.symbol}`,
+        triggered: false,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Check whether confidence has dropped significantly since position entry.
+ */
+async function checkConfidenceDrop(
+  position: ManagedPositionWithAlerts
+): Promise<CheckAlert | null> {
+  const newConfidence = await calculateConfidence({
+    symbol: position.symbol,
+    side: position.side as 'buy' | 'sell',
+    entryPrice: position.entryPrice,
+  });
+
+  if (newConfidence.total <= 3 && position.confidence >= 6) {
+    const alert = await createOrUpdateAlert(position.id, 'REVIEW',
+      `Market conditions changed for ${position.symbol}! Confidence dropped from ${position.confidence} to ${newConfidence.total}. Review position.`);
+    if (alert) {
+      return { type: 'REVIEW', message: alert.message, triggered: false };
+    }
+  }
+  return null;
+}
+
 /**
  * Check a single position for triggers
  */
@@ -237,105 +382,38 @@ async function checkPosition(position: ManagedPositionWithAlerts): Promise<{
   message: string;
   triggered: boolean;
 }[]> {
-  const alerts: { type: string; message: string; triggered: boolean }[] = [];
+  const alerts: CheckAlert[] = [];
   const currentPrice = position.currentPrice || position.entryPrice;
   const multiplier = position.side === 'buy' ? 1 : -1;
-  
+
   // Check Take Profit
-  const tpHit = multiplier === 1 
-    ? currentPrice >= position.takeProfitPrice
-    : currentPrice <= position.takeProfitPrice;
-    
-  if (tpHit) {
-    const alert = await createOrUpdateAlert(position.id, 'TP_HIT', 
-      `Take profit hit for ${position.symbol}! Price: $${currentPrice.toFixed(2)}, Target: $${position.takeProfitPrice.toFixed(2)}`);
-    if (alert) {
-      alerts.push({ type: 'TP_HIT', message: alert.message, triggered: true });
-      // Close the position
-      await closePosition(position.id, currentPrice, 'TP_HIT');
-    }
+  const tp = await checkTakeProfit(position, currentPrice, multiplier);
+  if (tp.alert) alerts.push(tp.alert);
+
+  // Check Stop Loss (skip if TP already hit)
+  let slHit = false;
+  if (!tp.hit) {
+    const sl = await checkStopLoss(position, currentPrice, multiplier);
+    slHit = sl.hit;
+    if (sl.alert) alerts.push(sl.alert);
   }
-  
-  // Check Stop Loss
-  const slHit = multiplier === 1
-    ? currentPrice <= position.stopLossPrice
-    : currentPrice >= position.stopLossPrice;
-    
-  if (slHit && !tpHit) {
-    const alert = await createOrUpdateAlert(position.id, 'SL_HIT',
-      `Stop loss hit for ${position.symbol}! Price: $${currentPrice.toFixed(2)}, Stop: $${position.stopLossPrice.toFixed(2)}`);
-    if (alert) {
-      alerts.push({ type: 'SL_HIT', message: alert.message, triggered: true });
-      // Close the position
-      await closePosition(position.id, currentPrice, 'SL_HIT');
-    }
+
+  // Check Trailing Stop (skip if TP or SL already hit)
+  if (!tp.hit && !slHit) {
+    const trailing = await checkTrailingStop(position, currentPrice, multiplier);
+    if (trailing.alert) alerts.push(trailing.alert);
   }
-  
-  // Check Trailing Stop
-  if (position.trailingStopPct && position.highWaterMark) {
-    const trailingStopPrice = position.highWaterMark * (1 - multiplier * position.trailingStopPct / 100);
-    
-    // Update high water mark if price moved favorably
-    if ((multiplier === 1 && currentPrice > position.highWaterMark) ||
-        (multiplier === -1 && currentPrice < position.highWaterMark)) {
-      await prisma.managedPosition.update({
-        where: { id: position.id },
-        data: { highWaterMark: currentPrice },
-      });
-    }
-    
-    // Check if trailing stop triggered
-    const trailingHit = multiplier === 1
-      ? currentPrice <= trailingStopPrice
-      : currentPrice >= trailingStopPrice;
-      
-    if (trailingHit && !tpHit && !slHit) {
-      const alert = await createOrUpdateAlert(position.id, 'TRAILING_TRIGGERED',
-        `Trailing stop triggered for ${position.symbol}! Price: $${currentPrice.toFixed(2)}, Trailing Stop: $${trailingStopPrice.toFixed(2)}`);
-      if (alert) {
-        alerts.push({ type: 'TRAILING_TRIGGERED', message: alert.message, triggered: true });
-        await closePosition(position.id, currentPrice, 'TRAILING_STOP');
-      }
-    }
+
+  // Check Time Stop (skip if TP or SL already hit)
+  if (!tp.hit && !slHit) {
+    const timeAlert = await checkTimeStop(position, currentPrice);
+    if (timeAlert) alerts.push(timeAlert);
   }
-  
-  // Check Time Stop
-  if (position.hoursRemaining <= 0 && !tpHit && !slHit) {
-    const alert = await createOrUpdateAlert(position.id, 'TIME_STOP',
-      `Time stop reached for ${position.symbol}! Position held for ${position.timeStopHours} hours without hitting TP or SL.`);
-    if (alert) {
-      alerts.push({ type: 'TIME_STOP', message: alert.message, triggered: true });
-      await closePosition(position.id, currentPrice, 'TIME_STOP');
-    }
-  } else if (position.hoursRemaining <= 1 && position.hoursRemaining > 0) {
-    // Warning: less than 1 hour remaining
-    const existingWarning = position.alerts.find(a => a.type === 'TIME_WARNING' && !a.triggered);
-    if (!existingWarning) {
-      await createOrUpdateAlert(position.id, 'TIME_WARNING',
-        `Time stop warning for ${position.symbol}! ${position.hoursRemaining.toFixed(1)} hours remaining.`, false);
-      alerts.push({ 
-        type: 'TIME_WARNING', 
-        message: `Less than 1 hour until time stop for ${position.symbol}`,
-        triggered: false,
-      });
-    }
-  }
-  
-  // Check for confidence drop (re-evaluate market conditions)
-  const newConfidence = await calculateConfidence({
-    symbol: position.symbol,
-    side: position.side as 'buy' | 'sell',
-    entryPrice: position.entryPrice,
-  });
-  
-  if (newConfidence.total <= 3 && position.confidence >= 6) {
-    const alert = await createOrUpdateAlert(position.id, 'REVIEW',
-      `Market conditions changed for ${position.symbol}! Confidence dropped from ${position.confidence} to ${newConfidence.total}. Review position.`);
-    if (alert) {
-      alerts.push({ type: 'REVIEW', message: alert.message, triggered: false });
-    }
-  }
-  
+
+  // Check for confidence drop
+  const confidenceAlert = await checkConfidenceDrop(position);
+  if (confidenceAlert) alerts.push(confidenceAlert);
+
   return alerts;
 }
 

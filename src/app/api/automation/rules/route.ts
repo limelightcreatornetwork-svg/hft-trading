@@ -40,7 +40,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Automation rules GET error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to fetch rules' },
+      { success: false, error: 'Failed to fetch rules' },
       { status: 500 }
     );
   }
@@ -174,7 +174,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Automation rules POST error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to create rule' },
+      { success: false, error: 'Failed to create rule' },
       { status: 500 }
     );
   }
@@ -201,7 +201,7 @@ export const DELETE = withAuth(async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('Automation rules DELETE error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to cancel rule' },
+      { success: false, error: 'Failed to cancel rule' },
       { status: 500 }
     );
   }
@@ -228,7 +228,7 @@ export const PATCH = withAuth(async function PATCH(request: NextRequest) {
   } catch (error) {
     console.error('Automation rules PATCH error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to toggle rule' },
+      { success: false, error: 'Failed to toggle rule' },
       { status: 500 }
     );
   }

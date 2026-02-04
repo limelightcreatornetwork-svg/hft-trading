@@ -51,7 +51,7 @@ export async function GET(
   } catch (error) {
     console.error('GET scaled exit error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to get scaled exit plan' },
+      { success: false, error: 'Failed to get scaled exit plan' },
       { status: 500 }
     );
   }
@@ -80,7 +80,7 @@ export async function PATCH(
   } catch (error) {
     console.error('PATCH scaled exit error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to update scaled exit plan' },
+      { success: false, error: 'Failed to update scaled exit plan' },
       { status: 500 }
     );
   }
@@ -102,7 +102,7 @@ export async function DELETE(
   } catch (error) {
     console.error('DELETE scaled exit error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to cancel scaled exit plan' },
+      { success: false, error: 'Failed to cancel scaled exit plan' },
       { status: 500 }
     );
   }

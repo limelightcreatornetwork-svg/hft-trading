@@ -90,7 +90,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating trade:', error);
     return NextResponse.json(
-      { error: 'Failed to create trade', details: String(error) },
+      { error: 'Failed to create trade' },
       { status: 500 }
     );
   }
@@ -147,7 +147,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error calculating confidence:', error);
     return NextResponse.json(
-      { error: 'Failed to calculate confidence', details: String(error) },
+      { error: 'Failed to calculate confidence' },
       { status: 500 }
     );
   }

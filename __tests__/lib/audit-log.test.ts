@@ -1,12 +1,14 @@
 /**
  * Tests for Audit Logging System
+ *
+ * Updated for direct database writes (no buffer/flush pattern)
  */
 
 // Mock prisma before imports
 jest.mock('../../src/lib/db', () => ({
   prisma: {
     auditLog: {
-      createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      create: jest.fn().mockResolvedValue({ id: 'test-id' }),
       findMany: jest.fn().mockResolvedValue([]),
       groupBy: jest.fn().mockResolvedValue([]),
     },
@@ -19,33 +21,28 @@ import {
   queryAuditLogs,
   getActivitySummary,
   audit,
-  shutdownAuditLog,
 } from '../../src/lib/audit-log';
 
 describe('Audit Logging System', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Clear any pending flushes
-    jest.clearAllTimers();
-  });
-
-  afterEach(async () => {
-    // Ensure buffer is flushed after each test
-    await shutdownAuditLog();
   });
 
   describe('logAudit', () => {
-    it('should add entry to buffer', async () => {
+    it('should write entry directly to database', async () => {
       await logAudit({
         action: 'ORDER_SUBMITTED',
         symbol: 'AAPL',
         orderId: 'order-123',
       });
 
-      // Force flush
-      await shutdownAuditLog();
-
-      expect(prisma.auditLog.createMany).toHaveBeenCalled();
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'ORDER_SUBMITTED',
+          symbol: 'AAPL',
+          orderId: 'order-123',
+        }),
+      });
     });
 
     it('should include all provided fields', async () => {
@@ -62,186 +59,176 @@ describe('Audit Logging System', () => {
         userAgent: 'TestAgent/1.0',
       });
 
-      await shutdownAuditLog();
-
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'INTENT_CREATED',
-            userId: 'user-1',
-            clientId: 'client-1',
-            symbol: 'MSFT',
-            orderId: 'order-456',
-            intentId: 'intent-789',
-            positionId: 'pos-123',
-            details: expect.stringContaining('quantity'),
-            ipAddress: '127.0.0.1',
-            userAgent: 'TestAgent/1.0',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'INTENT_CREATED',
+          userId: 'user-1',
+          clientId: 'client-1',
+          symbol: 'MSFT',
+          orderId: 'order-456',
+          intentId: 'intent-789',
+          positionId: 'pos-123',
+          details: expect.stringContaining('quantity'),
+          ipAddress: '127.0.0.1',
+          userAgent: 'TestAgent/1.0',
+        }),
       });
+    });
+
+    it('should handle database errors gracefully', async () => {
+      (prisma.auditLog.create as jest.Mock).mockRejectedValueOnce(new Error('DB connection failed'));
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      await logAudit({
+        action: 'ORDER_SUBMITTED',
+        symbol: 'AAPL',
+        orderId: 'order-1',
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[AUDIT] Failed to write'),
+        expect.any(Error)
+      );
+
+      // Should log backup to console
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[AUDIT-BACKUP]'),
+        expect.any(String)
+      );
+
+      consoleSpy.mockRestore();
+      consoleLogSpy.mockRestore();
     });
   });
 
   describe('audit helpers', () => {
     it('should log order submitted', async () => {
       await audit.orderSubmitted('order-1', 'AAPL', { quantity: 100 });
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'ORDER_SUBMITTED',
-            orderId: 'order-1',
-            symbol: 'AAPL',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'ORDER_SUBMITTED',
+          orderId: 'order-1',
+          symbol: 'AAPL',
+        }),
       });
     });
 
     it('should log order cancelled', async () => {
       await audit.orderCancelled('order-2', 'GOOGL');
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'ORDER_CANCELLED',
-            orderId: 'order-2',
-            symbol: 'GOOGL',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'ORDER_CANCELLED',
+          orderId: 'order-2',
+          symbol: 'GOOGL',
+        }),
       });
     });
 
     it('should log kill switch activated', async () => {
       await audit.killSwitchActivated({ cancelledOrders: 5 });
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'KILL_SWITCH_ACTIVATED',
-            details: expect.stringContaining('cancelledOrders'),
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'KILL_SWITCH_ACTIVATED',
+          details: expect.stringContaining('cancelledOrders'),
+        }),
       });
     });
 
     it('should log kill switch deactivated', async () => {
       await audit.killSwitchDeactivated();
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'KILL_SWITCH_DEACTIVATED',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'KILL_SWITCH_DEACTIVATED',
+        }),
       });
     });
 
     it('should log position opened', async () => {
       await audit.positionOpened('pos-1', 'TSLA', { confidence: 8 });
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'POSITION_OPENED',
-            positionId: 'pos-1',
-            symbol: 'TSLA',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'POSITION_OPENED',
+          positionId: 'pos-1',
+          symbol: 'TSLA',
+        }),
       });
     });
 
     it('should log position closed', async () => {
       await audit.positionClosed('pos-2', 'META', { reason: 'TP_HIT', pnl: 150 });
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'POSITION_CLOSED',
-            positionId: 'pos-2',
-            symbol: 'META',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'POSITION_CLOSED',
+          positionId: 'pos-2',
+          symbol: 'META',
+        }),
       });
     });
 
     it('should log risk check passed', async () => {
       await audit.riskCheckPassed('intent-1', 'NVDA');
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'RISK_CHECK_PASSED',
-            intentId: 'intent-1',
-            symbol: 'NVDA',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'RISK_CHECK_PASSED',
+          intentId: 'intent-1',
+          symbol: 'NVDA',
+        }),
       });
     });
 
     it('should log risk check failed', async () => {
       await audit.riskCheckFailed('intent-2', 'AMD', { reason: 'exceeds_position_limit' });
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'RISK_CHECK_FAILED',
-            intentId: 'intent-2',
-            symbol: 'AMD',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'RISK_CHECK_FAILED',
+          intentId: 'intent-2',
+          symbol: 'AMD',
+        }),
       });
     });
 
     it('should log auth success', async () => {
       await audit.authSuccess('client-123', '192.168.1.1', 'Mozilla/5.0');
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'AUTH_SUCCESS',
-            clientId: 'client-123',
-            ipAddress: '192.168.1.1',
-            userAgent: 'Mozilla/5.0',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'AUTH_SUCCESS',
+          clientId: 'client-123',
+          ipAddress: '192.168.1.1',
+          userAgent: 'Mozilla/5.0',
+        }),
       });
     });
 
     it('should log auth failure', async () => {
       await audit.authFailure('10.0.0.1', 'curl/7.0', { reason: 'invalid_api_key' });
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'AUTH_FAILURE',
-            ipAddress: '10.0.0.1',
-            userAgent: 'curl/7.0',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'AUTH_FAILURE',
+          ipAddress: '10.0.0.1',
+          userAgent: 'curl/7.0',
+        }),
       });
     });
 
     it('should log config changed', async () => {
       await audit.configChanged({ field: 'maxPositionSize', oldValue: 1000, newValue: 2000 });
-      await shutdownAuditLog();
 
-      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            action: 'CONFIG_CHANGED',
-          }),
-        ]),
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'CONFIG_CHANGED',
+        }),
       });
     });
   });
@@ -352,36 +339,15 @@ describe('Audit Logging System', () => {
     });
   });
 
-  describe('buffer behavior', () => {
-    it('should batch multiple entries together', async () => {
+  describe('Direct write behavior', () => {
+    it('should write each entry individually', async () => {
       // Log multiple events
       await audit.orderSubmitted('order-1', 'AAPL');
       await audit.orderSubmitted('order-2', 'MSFT');
       await audit.orderSubmitted('order-3', 'GOOGL');
 
-      // Force flush
-      await shutdownAuditLog();
-
-      // Should be called once with all entries
-      expect(prisma.auditLog.createMany).toHaveBeenCalledTimes(1);
-      const callArg = (prisma.auditLog.createMany as jest.Mock).mock.calls[0][0];
-      expect(callArg.data.length).toBe(3);
-    });
-
-    it('should handle database errors gracefully', async () => {
-      (prisma.auditLog.createMany as jest.Mock).mockRejectedValueOnce(new Error('DB connection failed'));
-
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-
-      await audit.orderSubmitted('order-1', 'AAPL');
-      await shutdownAuditLog();
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[AUDIT] Failed to flush'),
-        expect.any(Error)
-      );
-
-      consoleSpy.mockRestore();
+      // Each should be written immediately
+      expect(prisma.auditLog.create).toHaveBeenCalledTimes(3);
     });
   });
 });

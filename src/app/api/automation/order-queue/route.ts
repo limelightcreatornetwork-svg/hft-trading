@@ -14,6 +14,7 @@ import {
   submitStopLossOrder,
   submitBracketOrder,
   cancelAllPendingOrders,
+  QueuedOrderStatus,
 } from '@/lib/order-queue';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
     
     let orders;
     if (status) {
-      orders = orderQueue.getOrdersByStatus(status as any);
+      orders = orderQueue.getOrdersByStatus(status as QueuedOrderStatus);
     } else {
       orders = orderQueue.getAllOrders();
     }
@@ -69,7 +70,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
   } catch (error) {
     console.error('GET order queue error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to get order queue' },
+      { success: false, error: 'Failed to get order queue' },
       { status: 500 }
     );
   }
@@ -272,7 +273,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
   } catch (error) {
     console.error('POST order queue error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to process order queue action' },
+      { success: false, error: 'Failed to process order queue action' },
       { status: 500 }
     );
   }

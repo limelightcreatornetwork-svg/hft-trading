@@ -386,6 +386,98 @@ export async function toggleRule(ruleId: string, enabled: boolean): Promise<void
 }
 
 /**
+ * Fetch all active and enabled rules from the database.
+ * Returns null if the table doesn't exist yet.
+ */
+async function fetchActiveEnabledRules(): Promise<Awaited<ReturnType<typeof prisma.automationRule.findMany>> | null> {
+  try {
+    return await prisma.automationRule.findMany({
+      where: {
+        status: 'active',
+        enabled: true,
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
+      },
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '';
+    if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
+      console.warn('AutomationRule table does not exist, returning empty result');
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Fetch current prices for a list of symbols, collecting any errors.
+ */
+async function fetchPricesForSymbols(
+  symbols: string[],
+  errors: string[]
+): Promise<Record<string, number>> {
+  const prices: Record<string, number> = {};
+  await Promise.all(symbols.map(async (sym) => {
+    try {
+      const quote = await getLatestQuote(sym);
+      prices[sym] = (quote.bid + quote.ask) / 2 || quote.last;
+    } catch (error) {
+      errors.push(`Failed to get quote for ${sym}: ${error}`);
+    }
+  }));
+  return prices;
+}
+
+/**
+ * Check a single rule against the current price and, if triggered, execute it.
+ * Handles OCO group cancellation when a rule fires.
+ */
+async function checkAndExecuteSingleRule(
+  rule: Awaited<ReturnType<typeof prisma.automationRule.findMany>>[number],
+  currentPrice: number,
+  position: AlpacaPosition | undefined,
+  result: MonitoringResult
+): Promise<void> {
+  const shouldTrigger = checkTrigger(rule, currentPrice, position);
+  if (!shouldTrigger) return;
+
+  try {
+    const execution = await executeRule(rule, currentPrice, position);
+    result.rulesTriggered++;
+    result.triggeredRules.push({
+      ruleId: rule.id,
+      symbol: rule.symbol,
+      triggerType: rule.triggerType,
+      triggerPrice: currentPrice,
+      orderId: execution.orderId || undefined,
+      status: execution.orderStatus,
+    });
+
+    // If this is an OCO rule, cancel the other leg
+    if (rule.ocoGroupId) {
+      await cancelOCOGroup(rule.ocoGroupId);
+    }
+  } catch (error) {
+    result.errors.push(`Failed to execute rule ${rule.id}: ${error}`);
+  }
+}
+
+/**
+ * Expire any rules whose expiresAt has passed.
+ */
+async function expireOutdatedRules(): Promise<void> {
+  await prisma.automationRule.updateMany({
+    where: {
+      status: 'active',
+      expiresAt: { lt: new Date() },
+    },
+    data: { status: 'expired' },
+  });
+}
+
+/**
  * Monitor positions and check for triggered rules
  * This should be called periodically (e.g., every few seconds during market hours)
  */
@@ -397,28 +489,8 @@ export async function monitorAndExecute(): Promise<MonitoringResult> {
     triggeredRules: [],
   };
 
-  // Get all active and enabled rules
-  let rules;
-  try {
-    rules = await prisma.automationRule.findMany({
-      where: { 
-        status: 'active', 
-        enabled: true,
-        OR: [
-          { expiresAt: null },
-          { expiresAt: { gt: new Date() } },
-        ],
-      },
-    });
-  } catch (error) {
-    // Handle case where table doesn't exist yet
-    const errorMessage = error instanceof Error ? error.message : '';
-    if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
-      console.warn('AutomationRule table does not exist, returning empty result');
-      return result;
-    }
-    throw error;
-  }
+  const rules = await fetchActiveEnabledRules();
+  if (rules === null) return result;
 
   result.rulesChecked = rules.length;
 
@@ -429,55 +501,16 @@ export async function monitorAndExecute(): Promise<MonitoringResult> {
 
   // Get current prices
   const symbols = [...new Set(rules.map(r => r.symbol))];
-  const prices: Record<string, number> = {};
-  
-  await Promise.all(symbols.map(async (sym) => {
-    try {
-      const quote = await getLatestQuote(sym);
-      prices[sym] = (quote.bid + quote.ask) / 2 || quote.last;
-    } catch (error) {
-      result.errors.push(`Failed to get quote for ${sym}: ${error}`);
-    }
-  }));
+  const prices = await fetchPricesForSymbols(symbols, result.errors);
 
   // Check each rule
   for (const rule of rules) {
     const currentPrice = prices[rule.symbol];
     if (!currentPrice) continue;
-
-    const shouldTrigger = checkTrigger(rule, currentPrice, positionMap.get(rule.symbol));
-    
-    if (shouldTrigger) {
-      try {
-        const execution = await executeRule(rule, currentPrice, positionMap.get(rule.symbol));
-        result.rulesTriggered++;
-        result.triggeredRules.push({
-          ruleId: rule.id,
-          symbol: rule.symbol,
-          triggerType: rule.triggerType,
-          triggerPrice: currentPrice,
-          orderId: execution.orderId || undefined,
-          status: execution.orderStatus,
-        });
-
-        // If this is an OCO rule, cancel the other leg
-        if (rule.ocoGroupId) {
-          await cancelOCOGroup(rule.ocoGroupId);
-        }
-      } catch (error) {
-        result.errors.push(`Failed to execute rule ${rule.id}: ${error}`);
-      }
-    }
+    await checkAndExecuteSingleRule(rule, currentPrice, positionMap.get(rule.symbol), result);
   }
 
-  // Check for expired rules
-  await prisma.automationRule.updateMany({
-    where: {
-      status: 'active',
-      expiresAt: { lt: new Date() },
-    },
-    data: { status: 'expired' },
-  });
+  await expireOutdatedRules();
 
   // Take position snapshots for history
   await takePositionSnapshots(positions, prices);
@@ -537,48 +570,59 @@ function checkTrigger(
 }
 
 /**
- * Execute a triggered rule
+ * Resolve the order quantity from the rule or the current position.
+ * Returns 0 if no quantity can be determined.
  */
-async function executeRule(
+function resolveOrderQuantity(
+  ruleQuantity: number | null,
+  position?: AlpacaPosition
+): number {
+  if (ruleQuantity) return ruleQuantity;
+  if (position) return Math.abs(parseFloat(position.qty));
+  return 0;
+}
+
+/**
+ * Log a failed execution (no quantity) and mark the rule as triggered.
+ */
+async function logFailedExecution(
+  ruleId: string,
+  triggerPrice: number,
+  errorMessage: string
+): Promise<{ orderId: string | null; orderStatus: string }> {
+  await prisma.automationExecution.create({
+    data: {
+      ruleId,
+      triggerPrice,
+      quantity: 0,
+      orderStatus: 'failed',
+      errorMessage,
+    },
+  });
+
+  await prisma.automationRule.update({
+    where: { id: ruleId },
+    data: { status: 'triggered', triggeredAt: new Date() },
+  });
+
+  return { orderId: null, orderStatus: 'failed' };
+}
+
+/**
+ * Submit the triggered order to Alpaca and record the execution.
+ */
+async function submitTriggeredOrder(
   rule: {
     id: string;
     symbol: string;
     orderSide: string;
     orderType: string;
-    quantity: number | null;
     limitPrice: number | null;
   },
   triggerPrice: number,
-  position?: AlpacaPosition
+  quantity: number
 ): Promise<{ orderId: string | null; orderStatus: string }> {
-  // Determine quantity - use rule quantity or full position
-  let quantity = rule.quantity;
-  if (!quantity && position) {
-    quantity = Math.abs(parseFloat(position.qty));
-  }
-  
-  if (!quantity || quantity <= 0) {
-    // Log execution but mark as failed due to no quantity
-    await prisma.automationExecution.create({
-      data: {
-        ruleId: rule.id,
-        triggerPrice,
-        quantity: 0,
-        orderStatus: 'failed',
-        errorMessage: 'No quantity specified and no position found',
-      },
-    });
-    
-    await prisma.automationRule.update({
-      where: { id: rule.id },
-      data: { status: 'triggered', triggeredAt: new Date() },
-    });
-    
-    return { orderId: null, orderStatus: 'failed' };
-  }
-
   try {
-    // Submit order to Alpaca
     const order = await submitOrder({
       symbol: rule.symbol,
       qty: quantity,
@@ -588,7 +632,7 @@ async function executeRule(
       limit_price: rule.limitPrice || undefined,
     });
 
-    // Log execution
+    // Log successful execution
     await prisma.automationExecution.create({
       data: {
         ruleId: rule.id,
@@ -602,8 +646,8 @@ async function executeRule(
     // Update rule status
     await prisma.automationRule.update({
       where: { id: rule.id },
-      data: { 
-        status: 'triggered', 
+      data: {
+        status: 'triggered',
         triggeredAt: new Date(),
         orderId: order.id,
       },
@@ -612,7 +656,7 @@ async function executeRule(
     return { orderId: order.id, orderStatus: order.status };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    
+
     await prisma.automationExecution.create({
       data: {
         ruleId: rule.id,
@@ -630,6 +674,30 @@ async function executeRule(
 
     throw error;
   }
+}
+
+/**
+ * Execute a triggered rule
+ */
+async function executeRule(
+  rule: {
+    id: string;
+    symbol: string;
+    orderSide: string;
+    orderType: string;
+    quantity: number | null;
+    limitPrice: number | null;
+  },
+  triggerPrice: number,
+  position?: AlpacaPosition
+): Promise<{ orderId: string | null; orderStatus: string }> {
+  const quantity = resolveOrderQuantity(rule.quantity, position);
+
+  if (quantity <= 0) {
+    return logFailedExecution(rule.id, triggerPrice, 'No quantity specified and no position found');
+  }
+
+  return submitTriggeredOrder(rule, triggerPrice, quantity);
 }
 
 /**

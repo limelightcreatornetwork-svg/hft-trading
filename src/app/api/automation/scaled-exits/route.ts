@@ -34,7 +34,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
   } catch (error) {
     console.error('GET scaled exits error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to get scaled exits' },
+      { success: false, error: 'Failed to get scaled exits' },
       { status: 500 }
     );
   }
@@ -97,7 +97,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
   } catch (error) {
     console.error('POST scaled exit error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to create scaled exit plan' },
+      { success: false, error: 'Failed to create scaled exit plan' },
       { status: 500 }
     );
   }

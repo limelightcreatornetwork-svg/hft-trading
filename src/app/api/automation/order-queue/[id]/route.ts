@@ -55,7 +55,7 @@ export async function GET(
   } catch (error) {
     console.error('GET queued order error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to get queued order' },
+      { success: false, error: 'Failed to get queued order' },
       { status: 500 }
     );
   }
@@ -84,7 +84,7 @@ export async function DELETE(
   } catch (error) {
     console.error('DELETE queued order error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to cancel queued order' },
+      { success: false, error: 'Failed to cancel queued order' },
       { status: 500 }
     );
   }

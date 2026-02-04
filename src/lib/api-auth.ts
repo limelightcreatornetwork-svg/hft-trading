@@ -11,9 +11,42 @@ import { getOptionalEnv } from './env';
 /**
  * API key configuration
  * Set HFT_API_KEY in environment to enable authentication
- * If not set, authentication is disabled (development mode)
+ * In production, authentication is REQUIRED - first request will fail without it
+ * In development, authentication is optional (logs warning if not set)
  */
 const API_KEY = getOptionalEnv('HFT_API_KEY', '');
+
+// Flag to track if auth validation has been performed
+let authValidated = false;
+
+/**
+ * Validate auth configuration at runtime (not build time)
+ * Called on first request to ensure production has proper auth configured
+ */
+function validateAuthConfig(): void {
+  if (authValidated) return;
+  authValidated = true;
+
+  // Check for build phase - don't validate during build
+  const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
+  if (isBuildTime) return;
+
+  // Enforce authentication in production
+  if (!API_KEY && process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'FATAL: HFT_API_KEY environment variable is required in production. ' +
+      'Set this variable to a secure API key to enable authentication.'
+    );
+  }
+
+  // Warn in development if auth is disabled
+  if (!API_KEY && process.env.NODE_ENV !== 'production') {
+    console.warn(
+      '[API-AUTH] WARNING: HFT_API_KEY not set - authentication is disabled. ' +
+      'This is acceptable for development but MUST be set in production.'
+    );
+  }
+}
 
 /**
  * Rate limiting state (in-memory for simplicity)
@@ -155,6 +188,9 @@ export type AuthResult =
  * Returns either success with client ID, or failure with error response
  */
 export function authenticateRequest(request: NextRequest): AuthResult {
+  // Validate auth config on first request (deferred from module load for build compatibility)
+  validateAuthConfig();
+
   // Check authentication
   if (!isAuthenticated(request)) {
     return { authenticated: false, response: unauthorizedResponse() };

@@ -8,7 +8,7 @@
  * - Time of day (avoid first/last 15 min)
  */
 
-import { getRegimeDetector, RegimeType } from './regime';
+import { getRegimeDetector, detectRegimeCached, RegimeType } from './regime';
 import {
   POSITION_SIZING as POSITION_SIZING_CONFIG,
   CONFIDENCE_CONFIG,
@@ -131,11 +131,10 @@ async function calculateTechnicalScore(symbol: string): Promise<{
   const reasons: string[] = [];
   
   try {
-    const detector = getRegimeDetector(symbol);
-    const result = await detector.detect();
-    
+    const result = await detectRegimeCached(symbol);
+
     let score = 5; // Base score
-    
+
     // Regime-based scoring
     switch (result.regime) {
       case 'TREND':
@@ -155,14 +154,14 @@ async function calculateTechnicalScore(symbol: string): Promise<{
         reasons.push(`UNTRADEABLE regime - extreme conditions, skip trade`);
         break;
     }
-    
+
     // Adjust for momentum (regression slope)
     const momentum = result.metrics.regressionSlope;
     if (Math.abs(momentum) > 0.1) {
       score += 0.5;
       reasons.push(`Strong momentum: ${momentum > 0 ? 'bullish' : 'bearish'} trend`);
     }
-    
+
     // Adjust for volume anomaly
     const volumeAnomaly = result.metrics.volumeAnomaly;
     if (volumeAnomaly > 1.5 && volumeAnomaly < 3) {
@@ -172,7 +171,7 @@ async function calculateTechnicalScore(symbol: string): Promise<{
       score -= 1;
       reasons.push(`Extreme volume spike (${volumeAnomaly.toFixed(1)}x avg) - potential exhaustion`);
     }
-    
+
     return {
       score: Math.max(1, Math.min(10, score)),
       regime: result.regime,
@@ -255,9 +254,8 @@ async function calculateMarketConditionsScore(): Promise<{
   const reasons: string[] = [];
   
   try {
-    // Try to get VIX data from SPY volatility as proxy
-    const spyDetector = getRegimeDetector('SPY');
-    const spyResult = await spyDetector.detect();
+    // Try to get VIX data from SPY volatility as proxy (cached)
+    const spyResult = await detectRegimeCached('SPY');
     
     // Use ATR percent as VIX proxy (typical VIX ranges 10-40)
     // ATR% of 1% ≈ VIX 15, ATR% of 2% ≈ VIX 25, ATR% of 3% ≈ VIX 35
@@ -400,9 +398,8 @@ export async function getSuggestedLevels(symbol: string, entryPrice: number, sid
   atrBased: boolean;
 }> {
   try {
-    const detector = getRegimeDetector(symbol);
-    const result = await detector.detect();
-    
+    const result = await detectRegimeCached(symbol);
+
     // Use 2x ATR for TP, 1x ATR for SL
     const atrPercent = result.metrics.atrPercent;
     

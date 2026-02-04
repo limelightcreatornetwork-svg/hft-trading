@@ -168,7 +168,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to submit options order'
+        error: 'Failed to submit options order'
       },
       { status: 500 }
     );
@@ -255,7 +255,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch options orders'
+        error: 'Failed to fetch options orders'
       },
       { status: 500 }
     );

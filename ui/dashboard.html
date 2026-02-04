@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HFT Trading Dashboard - Alpaca & Kalshi</title>
+    <title>HFT Trading Dashboard</title>
     <style>
         :root {
             --bg-primary: #0d1117;
@@ -427,7 +427,7 @@
     <header>
         <div>
             <div class="logo">📊 HFT Trading Dashboard</div>
-            <div class="logo-subtitle">Alpaca & Kalshi • <span id="trading-mode">Paper Mode</span></div>
+            <div class="logo-subtitle">Alpaca • <span id="trading-mode">Paper Mode</span></div>
         </div>
         <div class="status-bar">
             <div class="status-item">
@@ -590,9 +590,6 @@
                         <button class="control-btn" onclick="showLimitsModal()">
                             ⚙️ Edit Limits
                         </button>
-                        <button class="control-btn" onclick="showKalshiModal()">
-                            📈 Kalshi Balance
-                        </button>
                     </div>
                 </div>
             </div>
@@ -660,22 +657,6 @@
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeModal('limits-modal')">Cancel</button>
                 <button class="btn btn-primary" onclick="saveLimits()">Save Limits</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Kalshi Modal -->
-    <div class="modal-overlay" id="kalshi-modal">
-        <div class="modal">
-            <h2>📈 Kalshi Account</h2>
-            <div id="kalshi-content">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <span>Loading Kalshi data...</span>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="closeModal('kalshi-modal')">Close</button>
             </div>
         </div>
     </div>
@@ -1264,48 +1245,6 @@
                 loadRiskStatus();
             } catch (error) {
                 alert(`Failed to save limits: ${error.message}`);
-            }
-        }
-        
-        async function showKalshiModal() {
-            document.getElementById('kalshi-modal').classList.add('active');
-            const container = document.getElementById('kalshi-content');
-            
-            container.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <span>Loading Kalshi data...</span>
-                </div>
-            `;
-            
-            try {
-                const balance = await apiGet('/api/kalshi/balance');
-                const positions = await apiGet('/api/kalshi/positions');
-                
-                container.innerHTML = `
-                    <div class="metric-grid" style="margin-bottom: 20px;">
-                        <div class="metric">
-                            <div class="metric-value">$${balance.balance}</div>
-                            <div class="metric-label">Balance</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value">$${balance.available_balance}</div>
-                            <div class="metric-label">Available</div>
-                        </div>
-                    </div>
-                    <h4 style="margin-bottom: 10px;">Positions (${positions.length})</h4>
-                    ${positions.length === 0 ? 
-                        '<div style="color: var(--text-secondary);">No Kalshi positions</div>' :
-                        positions.map(p => `
-                            <div class="service-item">
-                                <span>${p.ticker || p.market_id}</span>
-                                <span>${p.position || p.count} contracts</span>
-                            </div>
-                        `).join('')
-                    }
-                `;
-            } catch (error) {
-                container.innerHTML = `<div class="error">Kalshi not available: ${error.message}</div>`;
             }
         }
         

@@ -1,5 +1,6 @@
 import { prisma } from './db';
-import { getRegimeDetector, RegimeType } from './regime';
+import { detectRegimeCached, RegimeType } from './regime';
+import { DEFAULT_RISK_CONFIG } from './constants';
 
 export interface TradingIntent {
   symbol: string;
@@ -37,17 +38,47 @@ export interface RiskConfig {
   tradingEnabled: boolean;
 }
 
-// Default risk config if none exists in DB
-const DEFAULT_RISK_CONFIG: RiskConfig = {
-  maxPositionSize: 1000,
-  maxOrderSize: 100,
-  maxDailyLoss: 1000,
-  allowedSymbols: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'SPY', 'QQQ', 'NVDA', 'META', 'AMD'],
-  tradingEnabled: false,
-};
+// DEFAULT_RISK_CONFIG is imported from './constants'
 
 // Kill switch state (in-memory, persisted in RiskConfig)
 let killSwitchActive = false;
+let killSwitchInitPromise: Promise<void> | null = null;
+let killSwitchInitialized = false;
+
+/**
+ * Reset kill switch state (for testing only)
+ * @internal
+ */
+export function _resetKillSwitchState(): void {
+  killSwitchActive = false;
+  killSwitchInitPromise = null;
+  killSwitchInitialized = false;
+}
+
+/**
+ * Initialize kill switch state from database
+ * Called lazily on first check to ensure DB state is respected on startup
+ */
+async function initKillSwitchState(): Promise<void> {
+  if (killSwitchInitialized) return;
+
+  try {
+    const config = await prisma.riskConfig.findFirst({
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (config) {
+      killSwitchActive = !config.tradingEnabled;
+    }
+    // If no config exists, keep default (false = trading enabled)
+
+    killSwitchInitialized = true;
+  } catch (error) {
+    console.error('Error initializing kill switch state from DB:', error);
+    // On error, keep default state but mark as initialized to avoid retry loop
+    killSwitchInitialized = true;
+  }
+}
 
 /**
  * Get current risk configuration
@@ -130,9 +161,29 @@ export async function updateRiskConfig(updates: Partial<RiskConfig>): Promise<Ri
 }
 
 /**
- * Check if kill switch is active
+ * Check if kill switch is active (async to ensure DB state is loaded)
+ * Uses lazy initialization with promise caching to avoid repeated queries
  */
-export function isKillSwitchActive(): boolean {
+export async function isKillSwitchActive(): Promise<boolean> {
+  // Use promise caching to avoid multiple concurrent init calls
+  if (!killSwitchInitialized && !killSwitchInitPromise) {
+    killSwitchInitPromise = initKillSwitchState();
+  }
+
+  if (killSwitchInitPromise) {
+    await killSwitchInitPromise;
+    killSwitchInitPromise = null;
+  }
+
+  return killSwitchActive;
+}
+
+/**
+ * Check if kill switch is active (sync version for compatibility)
+ * WARNING: May return stale state if called before async init completes
+ * Prefer using isKillSwitchActive() async version
+ */
+export function isKillSwitchActiveSync(): boolean {
   return killSwitchActive;
 }
 
@@ -157,8 +208,7 @@ export async function deactivateKillSwitch(): Promise<void> {
  */
 export async function checkRegime(symbol: string): Promise<RegimeCheckResult> {
   try {
-    const detector = getRegimeDetector(symbol);
-    const result = await detector.detect();
+    const result = await detectRegimeCached(symbol);
     
     // Determine if we can trade and position size multiplier
     let canTrade = true;
@@ -215,10 +265,11 @@ export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResul
   const config = await getRiskConfig();
 
   // Check 1: Kill switch / Trading enabled
+  const killSwitchState = await isKillSwitchActive();
   const tradingCheck = {
     name: 'trading_enabled',
-    passed: config.tradingEnabled && !killSwitchActive,
-    details: !config.tradingEnabled || killSwitchActive ? 'Trading is disabled (kill switch active)' : 'Trading enabled',
+    passed: config.tradingEnabled && !killSwitchState,
+    details: !config.tradingEnabled || killSwitchState ? 'Trading is disabled (kill switch active)' : 'Trading enabled',
   };
   checks.push(tradingCheck);
 
@@ -274,9 +325,37 @@ export async function checkIntent(intent: TradingIntent): Promise<RiskCheckResul
   // Check 5: Daily loss limit
   let dailyPL = 0;
   try {
-    // TODO: Implement actual daily P&L calculation from executed orders
-    // Would query today's intents and calculate from fills
-    dailyPL = 0;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    // Sum realized P&L from closed managed positions today
+    const closedToday = await prisma.managedPosition.findMany({
+      where: {
+        status: 'closed',
+        closedAt: { gte: todayStart },
+        pnl: { not: null },
+      },
+      select: { pnl: true },
+    });
+    const realizedPL = closedToday.reduce((sum, p) => sum + (p.pnl ?? 0), 0);
+
+    // Sum unrealized P&L from fills on orders created today
+    const todayFills = await prisma.fill.findMany({
+      where: {
+        createdAt: { gte: todayStart },
+      },
+      select: {
+        quantity: true,
+        price: true,
+        order: { select: { side: true, symbol: true } },
+      },
+    });
+    const fillPL = todayFills.reduce((sum, fill) => {
+      const sign = fill.order.side === 'BUY' ? -1 : 1;
+      return sum + sign * fill.quantity * fill.price;
+    }, 0);
+
+    dailyPL = realizedPL + fillPL;
   } catch (err) {
     console.error('Error checking daily P&L:', err);
   }
@@ -371,10 +450,11 @@ export async function getRiskHeadroom(): Promise<{
     console.error('Error fetching positions:', error);
   }
 
+  const killSwitchState = await isKillSwitchActive();
   return {
     orderSizeRemaining: config.maxOrderSize,
     maxPositionHeadroom: config.maxPositionSize - maxCurrentPosition,
     dailyLossRemaining: config.maxDailyLoss, // Would calculate actual remaining
-    tradingEnabled: config.tradingEnabled && !killSwitchActive,
+    tradingEnabled: config.tradingEnabled && !killSwitchState,
   };
 }

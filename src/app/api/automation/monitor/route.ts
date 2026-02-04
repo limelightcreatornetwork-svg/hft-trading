@@ -15,7 +15,7 @@ export const revalidate = 0;
 let lastMonitorRun: Date | null = null;
 let lastMonitorResult: Awaited<ReturnType<typeof monitorAndExecute>> | null = null;
 
-export const GET = withAuth(async function GET() {
+export const GET = withAuth(async function GET(_request) {
   try {
     const marketOpen = await isMarketOpen();
     const activeRules = await getActiveRules();
@@ -41,7 +41,7 @@ export const GET = withAuth(async function GET() {
   } catch (error) {
     console.error('Monitor GET error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to get monitor status' },
+      { success: false, error: 'Failed to get monitor status' },
       { status: 500 }
     );
   }
@@ -83,7 +83,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Monitor POST error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to run monitor' },
+      { success: false, error: 'Failed to run monitor' },
       { status: 500 }
     );
   }

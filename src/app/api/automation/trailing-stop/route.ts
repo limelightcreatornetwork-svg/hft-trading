@@ -43,7 +43,7 @@ export const GET = withAuth(async function GET(request: NextRequest) {
   } catch (error) {
     console.error('GET trailing stops error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to get trailing stops' },
+      { success: false, error: 'Failed to get trailing stops' },
       { status: 500 }
     );
   }
@@ -94,7 +94,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
   } catch (error) {
     console.error('POST trailing stop error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to create trailing stop' },
+      { success: false, error: 'Failed to create trailing stop' },
       { status: 500 }
     );
   }

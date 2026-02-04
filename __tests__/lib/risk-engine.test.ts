@@ -22,6 +22,11 @@ jest.mock('../../src/lib/db', () => ({
 
 // Mock regime module
 jest.mock('../../src/lib/regime', () => ({
+  detectRegimeCached: jest.fn().mockResolvedValue({
+    regime: 'TREND',
+    confidence: 0.8,
+    metrics: {},
+  }),
   getRegimeDetector: jest.fn(() => ({
     detect: jest.fn().mockResolvedValue({
       regime: 'TREND',
@@ -41,14 +46,18 @@ import { prisma } from '../../src/lib/db';
 import {
   getRiskConfig,
   isKillSwitchActive,
+  isKillSwitchActiveSync,
   checkRegime,
   checkIntent,
   TradingIntent,
+  _resetKillSwitchState,
 } from '../../src/lib/risk-engine';
 
 describe('Risk Engine', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Reset kill switch state between tests to ensure clean state
+    _resetKillSwitchState();
   });
 
   describe('getRiskConfig', () => {
@@ -96,8 +105,63 @@ describe('Risk Engine', () => {
   });
 
   describe('isKillSwitchActive', () => {
-    it('should return boolean', () => {
-      const result = isKillSwitchActive();
+    it('should return boolean (async)', async () => {
+      (prisma.riskConfig.findFirst as jest.Mock).mockResolvedValue({
+        id: 'test-id',
+        maxPositionSize: 1000,
+        maxOrderSize: 100,
+        maxDailyLoss: 1000,
+        allowedSymbols: [],
+        tradingEnabled: true,
+        updatedAt: new Date(),
+      });
+
+      const result = await isKillSwitchActive();
+      expect(typeof result).toBe('boolean');
+    });
+
+    it('should initialize kill switch state from database', async () => {
+      (prisma.riskConfig.findFirst as jest.Mock).mockResolvedValue({
+        id: 'test-id',
+        maxPositionSize: 1000,
+        maxOrderSize: 100,
+        maxDailyLoss: 1000,
+        allowedSymbols: [],
+        tradingEnabled: false, // Kill switch is active (trading disabled)
+        updatedAt: new Date(),
+      });
+
+      const result = await isKillSwitchActive();
+      expect(result).toBe(true); // Should be true when trading is disabled
+    });
+
+    it('should return false when trading is enabled', async () => {
+      (prisma.riskConfig.findFirst as jest.Mock).mockResolvedValue({
+        id: 'test-id',
+        maxPositionSize: 1000,
+        maxOrderSize: 100,
+        maxDailyLoss: 1000,
+        allowedSymbols: [],
+        tradingEnabled: true, // Kill switch is not active
+        updatedAt: new Date(),
+      });
+
+      const result = await isKillSwitchActive();
+      expect(result).toBe(false);
+    });
+
+    it('should handle database errors gracefully', async () => {
+      (prisma.riskConfig.findFirst as jest.Mock).mockRejectedValue(new Error('DB error'));
+
+      // Should not throw, returns default state
+      const result = await isKillSwitchActive();
+      expect(typeof result).toBe('boolean');
+    });
+  });
+
+  describe('isKillSwitchActiveSync', () => {
+    it('should return boolean synchronously', () => {
+      const result = isKillSwitchActiveSync();
       expect(typeof result).toBe('boolean');
     });
   });
@@ -114,10 +178,8 @@ describe('Risk Engine', () => {
     it('should handle error and return conservative settings', async () => {
       // Dynamic require to access mock within test
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getRegimeDetector } = require('../../src/lib/regime');
-      getRegimeDetector.mockReturnValueOnce({
-        detect: jest.fn().mockRejectedValue(new Error('API error')),
-      });
+      const { detectRegimeCached } = require('../../src/lib/regime');
+      detectRegimeCached.mockRejectedValueOnce(new Error('API error'));
 
       const result = await checkRegime('AAPL');
 

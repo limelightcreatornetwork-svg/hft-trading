@@ -1,25 +1,25 @@
 # HFT Trading System - Requirements Audit
 
-**Last Updated:** 2026-02-02  
-**Brokers:** Alpaca (stocks/options), Kalshi (prediction markets)  
+**Last Updated:** 2026-02-04
+**Brokers:** Alpaca (stocks/options)
 **Status:** ✅ COMPLETE
 
 ---
 
 ## Executive Summary
 
-This document provides a comprehensive audit of trading API requirements for the HFT system, comparing what Alpaca and Kalshi provide against what we need, and tracking implementation status.
+This document provides a comprehensive audit of trading API requirements for the HFT system, comparing what Alpaca provides against what we need, and tracking implementation status.
 
-| Category | Alpaca Support | Kalshi Support | Our Implementation |
-|----------|----------------|----------------|-------------------|
-| Order Types | ✅ Full | ⚠️ Limit only | ✅ Complete |
-| Streaming | ✅ Full | ✅ Full | ✅ Complete |
-| Rate Limits | ✅ 200/min | ✅ 10/sec | ✅ Handled |
-| Risk Controls | ❌ Basic | ❌ Basic | ✅ Custom Engine |
-| Auth/Security | ✅ Good | ✅ Good | ✅ Complete |
-| Agent Tools | N/A | N/A | ✅ 5 Tools |
-| Human Approval | N/A | N/A | ✅ Implemented |
-| Status Monitoring | ⚠️ Status page | ⚠️ Status page | ✅ Automated |
+| Category | Alpaca Support | Our Implementation |
+|----------|----------------|-------------------|
+| Order Types | ✅ Full | ✅ Complete |
+| Streaming | ✅ Full | ✅ Complete |
+| Rate Limits | ✅ 200/min | ✅ Handled |
+| Risk Controls | ❌ Basic | ✅ Custom Engine |
+| Auth/Security | ✅ Good | ✅ Complete |
+| Agent Tools | N/A | ✅ 5 Tools |
+| Human Approval | N/A | ✅ Implemented |
+| Status Monitoring | ⚠️ Status page | ✅ Automated |
 
 ---
 
@@ -73,36 +73,6 @@ This document provides a comprehensive audit of trading API requirements for the
 - Use with caution in fast-moving markets
 - Consider manual cancel-then-new for critical orders
 
-### 1.2 Kalshi (Prediction Markets)
-
-#### Order Types
-| Feature | Supported | Notes |
-|---------|-----------|-------|
-| Limit | ✅ | Only supported order type |
-| Market | ❌ | Use limit at 99¢ for pseudo-market buy |
-
-**Workaround for market orders:**
-```python
-# Pseudo-market buy (pays up to 99¢)
-await kalshi.submit_order(ticker, side="yes", action="buy", count=10, yes_price=99)
-
-# Pseudo-market sell (accepts as low as 1¢)
-await kalshi.submit_order(ticker, side="yes", action="sell", count=10, yes_price=1)
-```
-
-#### Time-in-Force
-| TIF | Supported | Notes |
-|-----|-----------|-------|
-| GTC | ✅ | Until event closes |
-| IOC | ⚠️ | Via `action: immediate-or-cancel` parameter |
-| Day/FOK | ❌ | Not supported |
-
-#### Idempotency
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Client Order ID | ✅ | UUID format recommended |
-| Idempotent Submit | ✅ | Resubmit returns existing order |
-
 ---
 
 ## 2. Realtime Data + Streaming
@@ -131,28 +101,15 @@ await kalshi.submit_order(ticker, side="yes", action="sell", count=10, yes_price
 - ✅ Message parsing and callbacks
 - ✅ Heartbeat monitoring
 
-### 2.2 Kalshi WebSocket Streams
+### 2.2 Paper Trading Parity
 
-| Stream | Endpoint | Data | Implementation |
-|--------|----------|------|----------------|
-| Market | `wss://api.kalshi.co/trade-api/ws/v2` | Orderbook, trades | ✅ `KalshiStream` |
-| Portfolio | Same connection | Positions, fills | ✅ `KalshiStream` |
-
-**Implemented Features:**
-- ✅ Single multiplexed connection
-- ✅ Sequence numbers for gap detection
-- ✅ Heartbeat handling
-- ✅ Auto-reconnection
-
-### 2.3 Paper Trading Parity
-
-| Feature | Alpaca | Kalshi |
-|---------|--------|--------|
-| Paper Environment | ✅ Full parity | ✅ Demo mode |
-| Simulated Fills | ✅ Realistic | ⚠️ Instant fills |
-| Market Data | ✅ Same as live | ✅ Same as live |
-| Rate Limits | ✅ Same | ✅ Same |
-| WebSocket | ✅ Same | ✅ Same |
+| Feature | Alpaca |
+|---------|--------|
+| Paper Environment | ✅ Full parity |
+| Simulated Fills | ✅ Realistic |
+| Market Data | ✅ Same as live |
+| Rate Limits | ✅ Same |
+| WebSocket | ✅ Same |
 
 ---
 
@@ -172,14 +129,7 @@ await kalshi.submit_order(ticker, side="yes", action="sell", count=10, yes_price
 - `Retry-After` header provided
 - No penalty for hitting limits (no ban)
 
-### 3.2 Kalshi Rate Limits
-
-| Endpoint Type | Limit | Window |
-|---------------|-------|--------|
-| REST API | 10 req/sec | Rolling |
-| WebSocket | Unlimited | N/A |
-
-### 3.3 Implementation
+### 3.2 Implementation
 
 ```python
 # Rate limiter implementation (src/brokers/alpaca.py)
@@ -213,17 +163,7 @@ class RateLimiter:
 | IP Allowlist | ❌ | Not supported by Alpaca |
 | Paper vs Live Keys | ✅ | Separate key pairs |
 
-### 4.2 Kalshi
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Email/Password | ✅ | Returns session token |
-| API Key | ✅ | Alternative to email/password |
-| Read-only | ❌ | All keys have full access |
-| Key Rotation | ✅ | Via dashboard |
-| IP Allowlist | ❌ | Not supported |
-
-### 4.3 Our Implementation
+### 4.2 Our Implementation
 
 **Security Best Practices:**
 ```yaml
@@ -255,13 +195,6 @@ alpaca:
 | Kill Switch | ⚠️ | `DELETE /v2/positions` closes all |
 | Daily Loss Limit | ❌ | Must implement |
 | Symbol Allowlist | ❌ | Must implement |
-
-#### Kalshi
-| Control | Supported | Notes |
-|---------|-----------|-------|
-| Max Order Size | ✅ | Platform max $25k per position |
-| Position Limits | ✅ | Platform limits apply |
-| Daily Loss | ❌ | Must implement |
 
 ### 5.2 Custom Risk Engine (IMPLEMENTED)
 
@@ -351,9 +284,9 @@ risk:
 
 ### 7.1 Status & Monitoring
 
-| Feature | Alpaca | Kalshi | Our Implementation |
-|---------|--------|--------|-------------------|
-| Status Page | ✅ status.alpaca.markets | ✅ status.kalshi.com | ✅ `StatusMonitor` |
+| Feature | Alpaca | Our Implementation |
+|---------|--------|-------------------|
+| Status Page | ✅ status.alpaca.markets | ✅ `StatusMonitor` |
 | Webhooks | ❌ | ❌ | ⚠️ Future |
 | Error Codes | ✅ | ✅ | ✅ Handled |
 | Audit Trail | ✅ Activities API | ✅ | ✅ `JournalTool` |
@@ -403,15 +336,6 @@ StatusMonitor:
 | Fees | $0 commission | ✅ |
 | Trading Hours | 4:00 AM - 8:00 PM ET | ✅ Extended hours support |
 
-### 8.2 Kalshi
-
-| Constraint | Details | Implementation |
-|------------|---------|----------------|
-| Max Position | $25,000 per contract | ✅ Platform enforced |
-| Settlement | T+0 (instant) | ✅ |
-| Fees | 7¢ per contract | ✅ |
-| Hours | Varies by market | ✅ Market-specific |
-
 ---
 
 ## 9. Agent Tools (IMPLEMENTED)
@@ -431,7 +355,6 @@ StatusMonitor:
 - Snapshot queries with caching
 - Historical bars with adjustments
 - Options chain + Greeks access
-- Kalshi orderbook support
 
 **OrderTool:**
 - All order types (market, limit, stop, bracket, trailing)
@@ -439,14 +362,12 @@ StatusMonitor:
 - Pre-trade risk checks (automatic)
 - Bracket/OCO order helpers
 - Cancel/replace operations
-- Kalshi order support
 
 **PortfolioTool:**
 - Account info with caching
 - Position tracking with P&L
 - Portfolio analytics
 - Kill switch (close all)
-- Kalshi balance/positions
 
 **RiskTool:**
 - Pre-trade order checks
@@ -469,8 +390,7 @@ StatusMonitor:
 
 ### Completed ✅
 - [x] Alpaca broker client with all order types
-- [x] Kalshi broker client
-- [x] WebSocket streaming for both
+- [x] WebSocket streaming
 - [x] Rate limiting with backoff
 - [x] Idempotent order submission
 - [x] Custom risk engine with all controls
@@ -500,8 +420,6 @@ StatusMonitor:
 # 1. Set environment variables
 export ALPACA_PAPER_API_KEY="your-key"
 export ALPACA_PAPER_API_SECRET="your-secret"
-export KALSHI_DEMO_EMAIL="your-email"
-export KALSHI_DEMO_PASSWORD="your-password"
 
 # 2. Install dependencies
 pip install -r requirements.txt

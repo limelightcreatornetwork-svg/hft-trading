@@ -119,21 +119,6 @@ class OrderResult:
         return self.status == OrderStatus.PARTIALLY_FILLED
 
 
-@dataclass
-class KalshiOrderRequest:
-    """Kalshi-specific order request."""
-    ticker: str
-    side: str  # "yes" or "no"
-    action: str  # "buy" or "sell"
-    count: int
-    price: int  # Price in cents (1-99)
-    client_order_id: Optional[str] = None
-    
-    def __post_init__(self):
-        if self.client_order_id is None:
-            self.client_order_id = str(uuid.uuid4())
-
-
 class OrderTool:
     """
     Agent tool for order management.
@@ -170,13 +155,11 @@ class OrderTool:
     def __init__(
         self,
         alpaca_client=None,
-        kalshi_client=None,
         risk_engine: Optional[RiskEngine] = None,
         market_data_tool=None,
         journal_tool=None,
     ):
         self.alpaca = alpaca_client
-        self.kalshi = kalshi_client
         self.risk_engine = risk_engine
         self.market_data = market_data_tool
         self.journal = journal_tool
@@ -585,39 +568,3 @@ class OrderTool:
         
         raise ValueError("No broker client available")
     
-    # Kalshi orders
-    async def place_kalshi_order(
-        self,
-        request: KalshiOrderRequest,
-        skip_risk_check: bool = False,
-    ) -> OrderResult:
-        """Place a Kalshi prediction market order."""
-        if not self.kalshi:
-            raise ValueError("Kalshi client required")
-        
-        try:
-            response = await self.kalshi.submit_order(
-                ticker=request.ticker,
-                side=request.side,
-                action=request.action,
-                count=request.count,
-                yes_price=request.price if request.side == "yes" else None,
-                no_price=request.price if request.side == "no" else None,
-                client_order_id=request.client_order_id,
-            )
-            
-            order = response.get("order", {})
-            return OrderResult(
-                success=True,
-                order_id=order.get("order_id"),
-                client_order_id=request.client_order_id,
-                status=OrderStatus(order.get("status", "new")),
-                filled_qty=order.get("remaining_count", 0),
-                raw_response=response,
-            )
-        except Exception as e:
-            return OrderResult(
-                success=False,
-                client_order_id=request.client_order_id,
-                error=str(e),
-            )

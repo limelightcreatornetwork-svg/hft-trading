@@ -106,7 +106,6 @@ class StatusMonitor:
     # Known status pages
     STATUS_PAGES = {
         "alpaca": "https://status.alpaca.markets",
-        "kalshi": "https://status.kalshi.com",
     }
     
     def __init__(
@@ -202,60 +201,12 @@ class StatusMonitor:
                 error_message=str(e),
             )
     
-    async def check_kalshi(
-        self,
-        client=None,
-    ) -> ServiceHealth:
-        """Check Kalshi API health."""
-        start = datetime.now()
-        
-        try:
-            session = await self._get_session()
-            
-            # Check public markets endpoint
-            async with session.get(
-                "https://trading-api.kalshi.com/trade-api/v2/markets?limit=1",
-            ) as response:
-                elapsed = (datetime.now() - start).total_seconds() * 1000
-                
-                if response.status == 200:
-                    return ServiceHealth(
-                        service="kalshi",
-                        status=ServiceStatus.OPERATIONAL,
-                        last_check=datetime.now(),
-                        response_time_ms=elapsed,
-                    )
-                else:
-                    return ServiceHealth(
-                        service="kalshi",
-                        status=ServiceStatus.DEGRADED,
-                        last_check=datetime.now(),
-                        response_time_ms=elapsed,
-                        error_message=f"HTTP {response.status}",
-                    )
-                    
-        except asyncio.TimeoutError:
-            return ServiceHealth(
-                service="kalshi",
-                status=ServiceStatus.DEGRADED,
-                last_check=datetime.now(),
-                error_message="Request timeout",
-            )
-        except Exception as e:
-            return ServiceHealth(
-                service="kalshi",
-                status=ServiceStatus.MAJOR_OUTAGE,
-                last_check=datetime.now(),
-                error_message=str(e),
-            )
-    
     async def check_all(self) -> Dict[str, ServiceHealth]:
         """Run all health checks."""
         results = {}
         
         # Built-in checks
         results["alpaca"] = await self.check_alpaca()
-        results["kalshi"] = await self.check_kalshi()
         
         # Custom checks
         for service, check_fn in self._checks.items():

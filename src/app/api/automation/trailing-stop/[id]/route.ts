@@ -39,7 +39,7 @@ export async function PATCH(
   } catch (error) {
     console.error('PATCH trailing stop error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to update trailing stop' },
+      { success: false, error: 'Failed to update trailing stop' },
       { status: 500 }
     );
   }
@@ -61,7 +61,7 @@ export async function DELETE(
   } catch (error) {
     console.error('DELETE trailing stop error:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to cancel trailing stop' },
+      { success: false, error: 'Failed to cancel trailing stop' },
       { status: 500 }
     );
   }

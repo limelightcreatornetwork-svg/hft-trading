@@ -207,7 +207,7 @@ export async function GET(
   } catch (error) {
     console.error('Regime detection error:', error);
     return NextResponse.json(
-      { error: 'Failed to detect regime', details: String(error) },
+      { error: 'Failed to detect regime' },
       { status: 500 }
     );
   }
@@ -255,7 +255,7 @@ export async function POST(
   } catch (error) {
     console.error('Regime detection error:', error);
     return NextResponse.json(
-      { error: 'Failed to detect regime', details: String(error) },
+      { error: 'Failed to detect regime' },
       { status: 500 }
     );
   }

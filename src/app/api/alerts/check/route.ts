@@ -27,13 +27,13 @@ export const POST = withAuth(async function POST() {
   } catch (error) {
     console.error('Error checking positions:', error);
     return NextResponse.json(
-      { error: 'Failed to check positions', details: String(error) },
+      { error: 'Failed to check positions' },
       { status: 500 }
     );
   }
 });
 
-export const GET = withAuth(async function GET() {
+export const GET = withAuth(async function GET(_request) {
   // Also allow GET for convenience - call the POST logic
   const results = await checkAllPositions();
 

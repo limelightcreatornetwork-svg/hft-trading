@@ -1,34 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { activateKillSwitch, deactivateKillSwitch, isKillSwitchActive, getRiskConfig } from '@/lib/risk-engine';
 import { cancelAllOrders, getOrders } from '@/lib/alpaca';
 import { withAuth } from '@/lib/api-auth';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 
 // Disable caching - always fetch fresh data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const GET = withAuth(async function GET() {
+export const GET = withAuth(async function GET(_request: NextRequest) {
   try {
     const config = await getRiskConfig();
-    const active = isKillSwitchActive() || !config.tradingEnabled;
+    const killSwitchState = await isKillSwitchActive();
+    const active = killSwitchState || !config.tradingEnabled;
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        active,
-        tradingEnabled: config.tradingEnabled,
-        message: active ? 'Kill switch is ACTIVE - trading disabled' : 'Kill switch is OFF - trading enabled',
-      },
+    return apiSuccess({
+      active,
+      tradingEnabled: config.tradingEnabled,
+      message: active ? 'Kill switch is ACTIVE - trading disabled' : 'Kill switch is OFF - trading enabled',
     });
   } catch (error) {
     console.error('Kill switch GET API error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get kill switch status'
-      },
-      { status: 500 }
-    );
+    return apiError('Failed to get kill switch status');
   }
 });
 
@@ -38,10 +31,7 @@ export const POST = withAuth(async function POST(request: NextRequest) {
     const { action, cancelOrders = true } = body;
 
     if (!action || !['activate', 'deactivate'].includes(action)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid action. Use "activate" or "deactivate"' },
-        { status: 400 }
-      );
+      return apiError('Invalid action. Use "activate" or "deactivate"', 400);
     }
 
     let cancelledOrders = 0;
@@ -63,34 +53,22 @@ export const POST = withAuth(async function POST(request: NextRequest) {
         }
       }
 
-      return NextResponse.json({
-        success: true,
-        data: {
-          active: true,
-          message: 'Kill switch ACTIVATED - trading disabled',
-          cancelledOrders,
-        },
+      return apiSuccess({
+        active: true,
+        message: 'Kill switch ACTIVATED - trading disabled',
+        cancelledOrders,
       });
     } else {
       // Deactivate kill switch
       await deactivateKillSwitch();
 
-      return NextResponse.json({
-        success: true,
-        data: {
-          active: false,
-          message: 'Kill switch DEACTIVATED - trading enabled',
-        },
+      return apiSuccess({
+        active: false,
+        message: 'Kill switch DEACTIVATED - trading enabled',
       });
     }
   } catch (error) {
     console.error('Kill switch POST API error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to toggle kill switch'
-      },
-      { status: 500 }
-    );
+    return apiError('Failed to toggle kill switch');
   }
 });

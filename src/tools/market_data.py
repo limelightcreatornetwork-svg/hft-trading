@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 class DataSource(Enum):
     ALPACA = "alpaca"
-    KALSHI = "kalshi"
 
 
 @dataclass
@@ -110,14 +109,10 @@ class MarketDataTool:
     def __init__(
         self,
         alpaca_client=None,
-        kalshi_client=None,
         alpaca_stream=None,
-        kalshi_stream=None,
     ):
         self.alpaca = alpaca_client
-        self.kalshi = kalshi_client
         self.alpaca_stream = alpaca_stream
-        self.kalshi_stream = kalshi_stream
         
         self._quote_callbacks: List[Callable[[Quote], None]] = []
         self._trade_callbacks: List[Callable[[Trade], None]] = []
@@ -130,11 +125,11 @@ class MarketDataTool:
     async def get_snapshot(self, symbol: str, source: DataSource = DataSource.ALPACA) -> Snapshot:
         """
         Get current market snapshot for a symbol.
-        
+
         Args:
-            symbol: Stock ticker or Kalshi market ticker
+            symbol: Stock ticker
             source: Data source to use
-        
+
         Returns:
             Snapshot with latest quote, trade, and bar data
         """
@@ -225,34 +220,6 @@ class MarketDataTool:
                 daily_bar=daily_bar,
                 prev_daily_bar=prev_daily_bar,
                 source=DataSource.ALPACA,
-            )
-        
-        elif source == DataSource.KALSHI and self.kalshi:
-            market = await self.kalshi.get_market(symbol)
-            orderbook = await self.kalshi.get_orderbook(symbol)
-            
-            # Convert Kalshi data to our format
-            best_bid = orderbook.get("yes", [[]])[0] if orderbook.get("yes") else None
-            best_ask = orderbook.get("no", [[]])[0] if orderbook.get("no") else None
-            
-            latest_quote = Quote(
-                symbol=symbol,
-                bid_price=Decimal(str(best_bid[0])) / 100 if best_bid else Decimal("0"),
-                bid_size=best_bid[1] if best_bid else 0,
-                ask_price=Decimal("1") - Decimal(str(best_ask[0])) / 100 if best_ask else Decimal("1"),
-                ask_size=best_ask[1] if best_ask else 0,
-                timestamp=datetime.now(),
-                source=DataSource.KALSHI,
-            )
-            
-            return Snapshot(
-                symbol=symbol,
-                latest_quote=latest_quote,
-                latest_trade=None,
-                minute_bar=None,
-                daily_bar=None,
-                prev_daily_bar=None,
-                source=DataSource.KALSHI,
             )
         
         raise ValueError(f"No client available for source {source}")
@@ -449,31 +416,6 @@ class MarketDataTool:
             strike_price_lte=max_strike,
             option_type=option_type,
         )
-    
-    # Kalshi-specific
-    async def get_kalshi_markets(
-        self,
-        event_ticker: Optional[str] = None,
-        status: str = "open",
-        limit: int = 100,
-    ) -> List[Dict]:
-        """Get available Kalshi prediction markets."""
-        if not self.kalshi:
-            raise ValueError("Kalshi client required")
-        
-        data = await self.kalshi.get_markets(
-            event_ticker=event_ticker,
-            status=status,
-            limit=limit,
-        )
-        return data.get("markets", [])
-    
-    async def get_kalshi_orderbook(self, ticker: str, depth: int = 10) -> Dict:
-        """Get Kalshi market orderbook."""
-        if not self.kalshi:
-            raise ValueError("Kalshi client required")
-        
-        return await self.kalshi.get_orderbook(ticker, depth=depth)
     
     # Utility methods
     def get_cached_quote(self, symbol: str, source: DataSource = DataSource.ALPACA) -> Optional[Quote]:
