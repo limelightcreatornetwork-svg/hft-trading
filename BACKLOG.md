@@ -73,7 +73,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 
 ### 9. Missing API Documentation
 - **Issue**: No OpenAPI/Swagger docs
-- **Status**: ⏳ TODO
+- **Status**: ✅ FIXED - openapi.yaml with 59KB spec, served via /api/openapi and /api/docs
 
 ### 10. No Audit Logging
 - **Issue**: No record of who did what
@@ -91,7 +91,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 
 ### 12. Add WebSocket Support
 - Real-time price updates
-- **Status**: ⏳ TODO
+- **Status**: ✅ FIXED - alpaca-websocket.ts + realtime-prices.ts for real-time streaming
 
 ### 13. Add E2E Tests
 - Playwright/Cypress tests
@@ -332,13 +332,14 @@ Added a complete risk management system with 5 integrated components:
 
 ## Notes
 
-### Code Quality Metrics (Updated Cycle 30)
-- **Test Coverage**: 445 tests across 20 test suites
-- **Lint Status**: 2 warnings (reserved state for future feature), 0 errors
+### Code Quality Metrics (Updated 2026-02-04)
+- **Test Coverage**: 771 tests across 30 test suites
+- **Lint Status**: 0 errors, 58 warnings (mostly unused vars in tests)
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on critical endpoints
 - **Observability**: Audit logging + health checks
 - **Error Handling**: Error boundaries + graceful failures
+- **Recent Additions**: AlpacaRegimeDetector tests (+38 tests), lint cleanup
 
 ### Architecture
 ```
