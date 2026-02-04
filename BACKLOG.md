@@ -179,6 +179,8 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Complete apiHandler migration: all 26 remaining routes (-777 LOC) | 61 | 2026-02-04 |
 | Replace all server-side console.* with structured logger | 62 | 2026-02-04 |
 | Automation test coverage: 24% → 79% (+27 tests) | 63 | 2026-02-04 |
+| Strategy API route tests: all 8 endpoints (+26 tests) | 64 | 2026-02-04 |
+| Automation API route tests: rules, run, trailing, scaled (+44 tests) | 65 | 2026-02-04 |
 
 ---
 
@@ -363,13 +365,13 @@ Added a complete risk management system with 5 integrated components:
 ## Notes
 
 ### Code Quality Metrics (Updated 2026-02-04)
-- **Test Coverage**: 1303 tests across 47 test suites
+- **Test Coverage**: 1389 tests across 50 test suites
 - **Lint Status**: 0 errors, 0 warnings
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on all endpoints
 - **Observability**: Structured JSON logging + audit trail + health checks
 - **Error Handling**: Error boundaries + apiHandler pattern on all routes
-- **Recent Additions**: Complete apiHandler migration (all 42 routes), structured logger everywhere, automation.ts at 79% coverage
+- **Recent Additions**: Strategy + automation API route tests (70 new tests), apiHandler migration, structured logger everywhere
 
 ### Architecture
 ```
