@@ -3,6 +3,7 @@ import {
   getOptionsContracts,
   getOptionsSnapshots,
 } from '@/lib/alpaca-options';
+import { withAuth } from '@/lib/api-auth';
 
 export interface OptionsChainEntry {
   contract: {
@@ -28,7 +29,7 @@ export interface OptionsChainEntry {
   } | null;
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const symbol = searchParams.get('symbol');
@@ -132,4 +133,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

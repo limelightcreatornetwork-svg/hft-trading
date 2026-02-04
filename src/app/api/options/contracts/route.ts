@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOptionContract, getOptionsContracts } from '@/lib/alpaca-options';
+import { withAuth } from '@/lib/api-auth';
 
 /**
  * GET /api/options/contracts
  * Fetch option contracts with optional filtering
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const contractId = searchParams.get('id');
@@ -91,4 +92,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
