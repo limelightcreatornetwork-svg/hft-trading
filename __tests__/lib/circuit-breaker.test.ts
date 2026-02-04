@@ -322,5 +322,77 @@ describe('CircuitBreaker', () => {
       expect(breaker.getState()).toBe('CLOSED');
       expect(breaker.getStats().consecutiveFailures).toBe(1);
     });
+
+    it('handles non-Error rejections', async () => {
+      await expect(
+        breaker.execute(() => Promise.reject('string error'))
+      ).rejects.toBe('string error');
+
+      expect(breaker.getStats().totalFailures).toBe(1);
+    });
+
+    it('handles rejection with null', async () => {
+      await expect(
+        breaker.execute(() => Promise.reject(null))
+      ).rejects.toBeNull();
+
+      expect(breaker.getStats().totalFailures).toBe(1);
+    });
+
+    it('handles rapid sequential calls without race conditions', async () => {
+      const results: number[] = [];
+      for (let i = 0; i < 20; i++) {
+        const result = await breaker.execute(() => Promise.resolve(i));
+        results.push(result);
+      }
+      expect(results).toEqual(Array.from({ length: 20 }, (_, i) => i));
+      expect(breaker.getStats().totalSuccesses).toBe(20);
+    });
+
+    it('handles concurrent calls in CLOSED state', async () => {
+      const promises = Array.from({ length: 5 }, (_, i) =>
+        breaker.execute(() => Promise.resolve(i))
+      );
+      const results = await Promise.all(promises);
+      expect(results).toEqual([0, 1, 2, 3, 4]);
+      expect(breaker.getStats().totalSuccesses).toBe(5);
+    });
+
+    it('does not count success against failure threshold', async () => {
+      // 2 failures, then a success, then 2 more failures
+      await breaker.execute(() => Promise.reject(new Error('f1'))).catch(() => {});
+      await breaker.execute(() => Promise.reject(new Error('f2'))).catch(() => {});
+      await breaker.execute(() => Promise.resolve('ok'));
+      await breaker.execute(() => Promise.reject(new Error('f3'))).catch(() => {});
+      await breaker.execute(() => Promise.reject(new Error('f4'))).catch(() => {});
+
+      // Should still be CLOSED - consecutive count reset after success
+      expect(breaker.getState()).toBe('CLOSED');
+      expect(breaker.getStats().consecutiveFailures).toBe(2);
+      expect(breaker.getStats().totalFailures).toBe(4);
+    });
+
+    it('reset during HALF_OPEN returns to CLOSED', async () => {
+      breaker = new CircuitBreaker('reset-half', {
+        failureThreshold: 1,
+        cooldownMs: 50,
+      });
+
+      await breaker.execute(() => Promise.reject(new Error('fail'))).catch(() => {});
+      expect(breaker.getState()).toBe('OPEN');
+
+      await new Promise(resolve => setTimeout(resolve, 60));
+      expect(breaker.getState()).toBe('HALF_OPEN');
+
+      breaker.reset();
+      expect(breaker.getState()).toBe('CLOSED');
+      expect(breaker.canExecute()).toBe(true);
+    });
+
+    it('function returning undefined is treated as success', async () => {
+      const result = await breaker.execute(() => Promise.resolve(undefined));
+      expect(result).toBeUndefined();
+      expect(breaker.getStats().totalSuccesses).toBe(1);
+    });
   });
 });
