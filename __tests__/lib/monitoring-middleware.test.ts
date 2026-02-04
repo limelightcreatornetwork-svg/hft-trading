@@ -9,11 +9,29 @@ jest.mock('../../src/lib/monitoring', () => ({
   recordApiLatency: jest.fn().mockResolvedValue(undefined),
 }));
 
+// Mock circuit-breaker to get CircuitOpenError
+jest.mock('../../src/lib/circuit-breaker', () => {
+  class CircuitOpenError extends Error {
+    readonly circuitName: string;
+    readonly retryAfterMs: number;
+    constructor(circuitName: string, retryAfterMs: number) {
+      super(`Circuit ${circuitName} is OPEN`);
+      this.name = 'CircuitOpenError';
+      this.circuitName = circuitName;
+      this.retryAfterMs = retryAfterMs;
+    }
+  }
+  return { CircuitOpenError };
+});
+
 import { recordApiLatency } from '../../src/lib/monitoring';
+import { CircuitOpenError } from '../../src/lib/circuit-breaker';
 import {
   withLatencyTracking,
   composeWithLatency,
   normalizeEndpoint,
+  classifyStatusCode,
+  classifyError,
 } from '../../src/lib/monitoring-middleware';
 
 describe('Monitoring Middleware', () => {
@@ -294,5 +312,159 @@ describe('Middleware status code coverage', () => {
         })
       );
     });
+  });
+});
+
+describe('classifyStatusCode', () => {
+  it('should classify 2xx as none', () => {
+    expect(classifyStatusCode(200)).toBe('none');
+    expect(classifyStatusCode(201)).toBe('none');
+    expect(classifyStatusCode(204)).toBe('none');
+  });
+
+  it('should classify 3xx as none', () => {
+    expect(classifyStatusCode(301)).toBe('none');
+    expect(classifyStatusCode(304)).toBe('none');
+  });
+
+  it('should classify 401/403 as auth', () => {
+    expect(classifyStatusCode(401)).toBe('auth');
+    expect(classifyStatusCode(403)).toBe('auth');
+  });
+
+  it('should classify 400/422 as validation', () => {
+    expect(classifyStatusCode(400)).toBe('validation');
+    expect(classifyStatusCode(422)).toBe('validation');
+  });
+
+  it('should classify 404 as not_found', () => {
+    expect(classifyStatusCode(404)).toBe('not_found');
+  });
+
+  it('should classify 429 as rate_limit', () => {
+    expect(classifyStatusCode(429)).toBe('rate_limit');
+  });
+
+  it('should classify 503 as circuit_breaker', () => {
+    expect(classifyStatusCode(503)).toBe('circuit_breaker');
+  });
+
+  it('should classify 504/408 as timeout', () => {
+    expect(classifyStatusCode(504)).toBe('timeout');
+    expect(classifyStatusCode(408)).toBe('timeout');
+  });
+
+  it('should classify other 5xx as server_error', () => {
+    expect(classifyStatusCode(500)).toBe('server_error');
+    expect(classifyStatusCode(502)).toBe('server_error');
+  });
+
+  it('should classify unrecognized codes as unknown', () => {
+    expect(classifyStatusCode(418)).toBe('unknown');
+    expect(classifyStatusCode(451)).toBe('unknown');
+  });
+});
+
+describe('classifyError', () => {
+  it('should classify CircuitOpenError as circuit_breaker', () => {
+    const error = new CircuitOpenError('test-circuit', 5000);
+    expect(classifyError(error)).toBe('circuit_breaker');
+  });
+
+  it('should classify timeout errors', () => {
+    expect(classifyError(new Error('Request timed out'))).toBe('timeout');
+    expect(classifyError(new Error('Connection timeout'))).toBe('timeout');
+    expect(classifyError(new Error('ECONNABORTED'))).toBe('timeout');
+  });
+
+  it('should classify auth errors', () => {
+    expect(classifyError(new Error('Unauthorized access'))).toBe('auth');
+    expect(classifyError(new Error('Forbidden resource'))).toBe('auth');
+    expect(classifyError(new Error('Authentication required'))).toBe('auth');
+  });
+
+  it('should classify not_found errors', () => {
+    expect(classifyError(new Error('Resource not found'))).toBe('not_found');
+    expect(classifyError(new Error('ENOENT: no such file'))).toBe('not_found');
+  });
+
+  it('should classify rate_limit errors', () => {
+    expect(classifyError(new Error('Rate limit exceeded'))).toBe('rate_limit');
+    expect(classifyError(new Error('Too many requests'))).toBe('rate_limit');
+  });
+
+  it('should classify validation errors', () => {
+    expect(classifyError(new Error('Validation failed'))).toBe('validation');
+    expect(classifyError(new Error('Invalid input'))).toBe('validation');
+  });
+
+  it('should classify generic errors as server_error', () => {
+    expect(classifyError(new Error('Something went wrong'))).toBe('server_error');
+    expect(classifyError(new Error('Unexpected failure'))).toBe('server_error');
+  });
+
+  it('should classify non-Error objects as server_error', () => {
+    expect(classifyError('string error')).toBe('server_error');
+    expect(classifyError(42)).toBe('server_error');
+    expect(classifyError(null)).toBe('server_error');
+  });
+});
+
+describe('Error classification in middleware', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should include errorCategory for successful responses', async () => {
+    const handler = jest.fn().mockResolvedValue(
+      NextResponse.json({ success: true }, { status: 200 })
+    );
+
+    const wrappedHandler = withLatencyTracking(handler);
+    const request = new NextRequest('http://localhost/api/test', { method: 'GET' });
+
+    await wrappedHandler(request);
+
+    expect(recordApiLatency).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorCategory: 'none',
+      })
+    );
+  });
+
+  it('should classify thrown CircuitOpenError correctly', async () => {
+    const handler = jest.fn().mockRejectedValue(
+      new CircuitOpenError('alpaca-trading', 30000)
+    );
+
+    const wrappedHandler = withLatencyTracking(handler);
+    const request = new NextRequest('http://localhost/api/trade', { method: 'POST' });
+
+    await expect(wrappedHandler(request)).rejects.toThrow();
+
+    expect(recordApiLatency).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 500,
+        errorCategory: 'circuit_breaker',
+      })
+    );
+  });
+
+  it('should classify 401 response as auth error', async () => {
+    const handler = jest.fn().mockResolvedValue(
+      new NextResponse(null, { status: 401 })
+    );
+
+    const wrappedHandler = withLatencyTracking(handler);
+    const request = new NextRequest('http://localhost/api/test', { method: 'GET' });
+
+    await wrappedHandler(request);
+
+    expect(recordApiLatency).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 401,
+        errorCategory: 'auth',
+      })
+    );
   });
 });

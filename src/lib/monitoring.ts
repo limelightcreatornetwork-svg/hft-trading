@@ -11,11 +11,23 @@ import { prisma } from './db';
 // TYPES
 // ============================================
 
+export type ErrorCategory =
+  | 'none'
+  | 'auth'
+  | 'validation'
+  | 'not_found'
+  | 'rate_limit'
+  | 'circuit_breaker'
+  | 'timeout'
+  | 'server_error'
+  | 'unknown';
+
 export interface ApiLatencyEntry {
   endpoint: string;
   method: string;
   latencyMs: number;
   statusCode: number;
+  errorCategory?: ErrorCategory;
   timestamp?: Date;
 }
 

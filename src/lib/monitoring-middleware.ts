@@ -1,16 +1,49 @@
 /**
  * API Latency Tracking Middleware for Next.js
  *
- * Wraps API route handlers to automatically track response times.
+ * Wraps API route handlers to automatically track response times
+ * and classify errors by category.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { recordApiLatency } from './monitoring';
+import { recordApiLatency, ErrorCategory } from './monitoring';
+import { CircuitOpenError } from './circuit-breaker';
 
 type RouteHandler = (
   request: NextRequest,
   context?: { params?: Record<string, string> }
 ) => Promise<NextResponse> | NextResponse;
+
+/**
+ * Classify an HTTP status code into an error category
+ */
+export function classifyStatusCode(statusCode: number): ErrorCategory {
+  if (statusCode >= 200 && statusCode < 400) return 'none';
+  if (statusCode === 401 || statusCode === 403) return 'auth';
+  if (statusCode === 400 || statusCode === 422) return 'validation';
+  if (statusCode === 404) return 'not_found';
+  if (statusCode === 429) return 'rate_limit';
+  if (statusCode === 503) return 'circuit_breaker';
+  if (statusCode === 504 || statusCode === 408) return 'timeout';
+  if (statusCode >= 500) return 'server_error';
+  return 'unknown';
+}
+
+/**
+ * Classify a thrown error into an error category
+ */
+export function classifyError(error: unknown): ErrorCategory {
+  if (error instanceof CircuitOpenError) return 'circuit_breaker';
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('econnaborted')) return 'timeout';
+    if (msg.includes('unauthorized') || msg.includes('forbidden') || msg.includes('authentication')) return 'auth';
+    if (msg.includes('not found') || msg.includes('enoent')) return 'not_found';
+    if (msg.includes('rate limit') || msg.includes('too many requests')) return 'rate_limit';
+    if (msg.includes('validation') || msg.includes('invalid')) return 'validation';
+  }
+  return 'server_error';
+}
 
 /**
  * Wrap a Next.js API route handler with latency tracking
@@ -31,6 +64,7 @@ export function withLatencyTracking(handler: RouteHandler): RouteHandler {
         method,
         latencyMs,
         statusCode: response.status,
+        errorCategory: classifyStatusCode(response.status),
       }).catch((err) => {
         console.error('[MONITORING] Failed to record latency:', err);
       });
@@ -39,12 +73,13 @@ export function withLatencyTracking(handler: RouteHandler): RouteHandler {
     } catch (error) {
       const latencyMs = Date.now() - start;
 
-      // Record error metric
+      // Record error metric with classification
       recordApiLatency({
         endpoint,
         method,
         latencyMs,
         statusCode: 500,
+        errorCategory: classifyError(error),
       }).catch((err) => {
         console.error('[MONITORING] Failed to record latency:', err);
       });
