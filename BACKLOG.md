@@ -166,6 +166,11 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Auth integration tests: regime + options read routes (+16 tests) | 48 | 2026-02-04 |
 | Circuit breaker for external API resilience (28 tests) | 49 | 2026-02-04 |
 | Circuit breaker integration into all Alpaca API functions | 50 | 2026-02-04 |
+| Health check: circuit breaker status reporting | 51 | 2026-02-04 |
+| Retry utility + alert system DB write resilience (19 tests) | 52 | 2026-02-04 |
+| Prisma schema: 14 missing indexes on FKs and query columns | 53 | 2026-02-04 |
+| Monitoring middleware: error classification (23 new tests) | 54 | 2026-02-04 |
+| Edge case tests: circuit breaker + alert system (26 new tests) | 55 | 2026-02-04 |
 
 ---
 
@@ -350,13 +355,13 @@ Added a complete risk management system with 5 integrated components:
 ## Notes
 
 ### Code Quality Metrics (Updated 2026-02-04)
-- **Test Coverage**: 1099 tests across 39 test suites
+- **Test Coverage**: 1169 tests across 40 test suites
 - **Lint Status**: 0 errors, 0 warnings
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on critical endpoints
 - **Observability**: Audit logging + health checks
 - **Error Handling**: Error boundaries + graceful failures
-- **Recent Additions**: Circuit breaker for Alpaca API resilience, auth on all remaining routes, 1099 total tests
+- **Recent Additions**: Retry utility, error classification middleware, DB indexes, 1169 total tests
 
 ### Architecture
 ```
