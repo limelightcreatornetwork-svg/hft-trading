@@ -75,10 +75,11 @@ export function ConfidenceTradeForm() {
       );
       if (!response.ok) throw new Error('Failed to preview');
       
-      const data = await response.json();
+      const json = await response.json();
+      const data = json.data;
       setPreview(data.confidence);
       setSuggestedLevels(data.suggestedLevels);
-      
+
       // Auto-fill suggested levels if not already set
       if (!takeProfitPct && data.suggestedLevels) {
         setTakeProfitPct(data.suggestedLevels.takeProfitPct.toFixed(1));
@@ -120,17 +121,18 @@ export function ConfidenceTradeForm() {
         }),
       });
       
-      const data = await response.json();
-      
+      const json = await response.json();
+      const data = json.data;
+
       if (data.skipped) {
-        setResult({ 
-          type: 'skipped', 
+        setResult({
+          type: 'skipped',
           message: data.reason,
           confidence: data.confidence,
         });
-      } else if (data.success) {
-        setResult({ 
-          type: 'success', 
+      } else if (json.success) {
+        setResult({
+          type: 'success',
           position: data.position,
           confidence: data.confidence,
         });

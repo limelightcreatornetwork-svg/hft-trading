@@ -43,8 +43,8 @@ export function ManagedPositionsTable({
     try {
       const response = await fetch('/api/positions/managed?status=active');
       if (!response.ok) throw new Error('Failed to fetch positions');
-      const data = await response.json();
-      setPositions(data.positions);
+      const json = await response.json();
+      setPositions(json.data.positions);
       setError(null);
     } catch (err) {
       setError('Failed to load positions');

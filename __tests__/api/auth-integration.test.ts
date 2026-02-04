@@ -669,7 +669,7 @@ describe('API Authentication Integration', () => {
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.message).toContain('ord-123');
+      expect(body.data.message).toContain('ord-123');
       expect(mockCancelOrder).toHaveBeenCalledWith('ord-123');
     });
 
@@ -709,11 +709,11 @@ describe('API Authentication Integration', () => {
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body.symbol).toBe('AAPL');
-      expect(body.side).toBe('buy');
-      expect(body.entryPrice).toBe(150);
-      expect(body.confidence.score).toBe(7);
-      expect(body.suggestedLevels).toBeDefined();
+      expect(body.data.symbol).toBe('AAPL');
+      expect(body.data.side).toBe('buy');
+      expect(body.data.entryPrice).toBe(150);
+      expect(body.data.confidence.score).toBe(7);
+      expect(body.data.suggestedLevels).toBeDefined();
     });
 
     it('defaults side to buy and entryPrice to 100', async () => {
@@ -721,8 +721,8 @@ describe('API Authentication Integration', () => {
       const res = await tradeGET(req);
       const body = await res.json();
 
-      expect(body.side).toBe('buy');
-      expect(body.entryPrice).toBe(100);
+      expect(body.data.side).toBe('buy');
+      expect(body.data.entryPrice).toBe(100);
     });
 
     it('returns 400 without symbol', async () => {
@@ -774,9 +774,9 @@ describe('API Authentication Integration', () => {
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.skipped).toBe(false);
-      expect(body.position.symbol).toBe('NVDA');
-      expect(body.confidence.score).toBe(8);
+      expect(body.data.skipped).toBe(false);
+      expect(body.data.position.symbol).toBe('NVDA');
+      expect(body.data.confidence.score).toBe(8);
     });
 
     it('returns skipped result when confidence is low', async () => {
@@ -791,9 +791,9 @@ describe('API Authentication Integration', () => {
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body.success).toBe(false);
-      expect(body.skipped).toBe(true);
-      expect(body.reason).toBe('Confidence too low');
+      expect(body.success).toBe(true);
+      expect(body.data.skipped).toBe(true);
+      expect(body.data.reason).toBe('Confidence too low');
     });
 
     it('rejects missing required fields', async () => {

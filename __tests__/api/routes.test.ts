@@ -191,9 +191,9 @@ describe('API: /api/trade', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.skipped).toBe(false);
-      expect(data.position).toBeDefined();
-      expect(data.confidence).toBeDefined();
+      expect(data.data.skipped).toBe(false);
+      expect(data.data.position).toBeDefined();
+      expect(data.data.confidence).toBeDefined();
     });
 
     it('should return 200 with skipped flag for low confidence', async () => {
@@ -208,9 +208,9 @@ describe('API: /api/trade', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.success).toBe(false);
-      expect(data.skipped).toBe(true);
-      expect(data.reason).toBe('Confidence below threshold');
+      expect(data.success).toBe(true);
+      expect(data.data.skipped).toBe(true);
+      expect(data.data.reason).toBe('Confidence below threshold');
     });
 
     it('should uppercase the symbol', async () => {
@@ -288,7 +288,7 @@ describe('API: /api/trade', () => {
 
       expect(response.status).toBe(500);
       const data = await response.json();
-      expect(data.error).toContain('Failed to create trade');
+      expect(data.error).toContain('Internal server error');
     });
 
     it('should pass optional TP/SL/trailing/time params', async () => {
@@ -335,9 +335,9 @@ describe('API: /api/trade', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.symbol).toBe('AAPL');
-      expect(data.confidence).toBeDefined();
-      expect(data.suggestedLevels).toBeDefined();
+      expect(data.data.symbol).toBe('AAPL');
+      expect(data.data.confidence).toBeDefined();
+      expect(data.data.suggestedLevels).toBeDefined();
     });
 
     it('should return 400 when symbol is missing', async () => {
@@ -367,8 +367,8 @@ describe('API: /api/trade', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.side).toBe('buy');
-      expect(data.entryPrice).toBe(100);
+      expect(data.data.side).toBe('buy');
+      expect(data.data.entryPrice).toBe(100);
     });
 
     it('should return 500 when confidence calculation fails', async () => {
@@ -505,9 +505,9 @@ describe('API: /api/positions/managed', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.positions).toHaveLength(2);
-      expect(data.count).toBe(2);
-      expect(data.status).toBe('active');
+      expect(data.data.positions).toHaveLength(2);
+      expect(data.data.count).toBe(2);
+      expect(data.data.status).toBe('active');
       expect(mockGetActiveManagedPositions).toHaveBeenCalled();
     });
 
@@ -520,8 +520,8 @@ describe('API: /api/positions/managed', () => {
       const response = await managedGet(request);
       const data = await response.json();
 
-      expect(data.positions).toHaveLength(1);
-      expect(data.status).toBe('closed');
+      expect(data.data.positions).toHaveLength(1);
+      expect(data.data.status).toBe('closed');
       expect(mockGetPositionHistory).toHaveBeenCalledWith(10);
     });
 
@@ -535,9 +535,9 @@ describe('API: /api/positions/managed', () => {
       const response = await managedGet(request);
       const data = await response.json();
 
-      expect(data.positions).toHaveLength(3);
-      expect(data.count).toBe(3);
-      expect(data.status).toBe('all');
+      expect(data.data.positions).toHaveLength(3);
+      expect(data.data.count).toBe(3);
+      expect(data.data.status).toBe('all');
     });
 
     it('should include stats when stats=true', async () => {
@@ -554,8 +554,8 @@ describe('API: /api/positions/managed', () => {
       const response = await managedGet(request);
       const data = await response.json();
 
-      expect(data.stats).toBeDefined();
-      expect(data.stats.totalTrades).toBe(50);
+      expect(data.data.stats).toBeDefined();
+      expect(data.data.stats.totalTrades).toBe(50);
     });
 
     it('should not include stats by default', async () => {
@@ -567,7 +567,7 @@ describe('API: /api/positions/managed', () => {
       const response = await managedGet(request);
       const data = await response.json();
 
-      expect(data.stats).toBeUndefined();
+      expect(data.data.stats).toBeUndefined();
       expect(mockGetTradingStats).not.toHaveBeenCalled();
     });
 
@@ -594,7 +594,7 @@ describe('API: /api/positions/managed', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.message).toContain('closed');
+      expect(data.data.message).toContain('closed');
       expect(mockManualClosePosition).toHaveBeenCalledWith('mp-1', 160);
     });
 
