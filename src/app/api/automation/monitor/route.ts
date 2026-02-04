@@ -37,7 +37,12 @@ export const GET = apiHandler(async function GET(_request) {
 });
 
 export const POST = apiHandler(async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => ({}));
+  let body: Record<string, unknown> = {};
+  try {
+    body = await request.json();
+  } catch {
+    // Empty body is valid - all fields are optional
+  }
   const force = body.force === true;
 
   // Check if market is open (unless forced)

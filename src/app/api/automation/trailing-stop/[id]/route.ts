@@ -28,6 +28,20 @@ export const PATCH = apiHandler(async function PATCH(
 
   const { trailPercent, trailAmount, activationPercent, enabled } = body;
 
+  // Validate numeric fields when provided
+  if (trailPercent !== undefined && (typeof trailPercent !== 'number' || trailPercent <= 0)) {
+    return apiError('trailPercent must be a positive number', 400);
+  }
+  if (trailAmount !== undefined && (typeof trailAmount !== 'number' || trailAmount <= 0)) {
+    return apiError('trailAmount must be a positive number', 400);
+  }
+  if (activationPercent !== undefined && (typeof activationPercent !== 'number' || activationPercent <= 0)) {
+    return apiError('activationPercent must be a positive number', 400);
+  }
+  if (enabled !== undefined && typeof enabled !== 'boolean') {
+    return apiError('enabled must be a boolean', 400);
+  }
+
   await updateTrailingStop(id, {
     trailPercent,
     trailAmount,

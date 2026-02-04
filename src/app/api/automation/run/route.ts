@@ -8,7 +8,8 @@
  */
 
 import { NextRequest } from 'next/server';
-import { apiHandler, apiSuccess } from '@/lib/api-helpers';
+import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
+import { createLogger } from '@/lib/logger';
 import { isMarketOpen } from '@/lib/alpaca';
 import { monitorAndExecute } from '@/lib/automation';
 import { monitorTrailingStops } from '@/lib/trailing-stop';
@@ -42,12 +43,20 @@ interface AutomationResult {
   durationMs: number;
 }
 
+const log = createLogger('api:automation:run');
+
 export const POST = apiHandler(async function POST(request: NextRequest) {
   const startTime = Date.now();
 
-  const body = await request.json().catch(() => ({}));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let body: any = {};
+  try {
+    body = await request.json();
+  } catch {
+    // Empty body is valid - all fields are optional
+  }
   const force = body.force === true;
-  const services = body.services || ['all']; // Can specify: rules, trailing, scaled, alerts, queue
+  const services: string[] = Array.isArray(body.services) ? body.services : ['all'];
 
   // Check if market is open (unless forced)
   const marketOpen = await isMarketOpen();

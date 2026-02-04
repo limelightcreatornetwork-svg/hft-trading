@@ -5,6 +5,7 @@
 
 import { NextRequest } from 'next/server';
 import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
+import { createLogger } from '@/lib/logger';
 import { getPositions, getLatestQuote } from '@/lib/alpaca';
 import {
   getRulesForPosition,
@@ -36,13 +37,15 @@ export const GET = apiHandler(async function GET(
   const positions = await getPositions();
   const position = positions.find(p => p.symbol === upperSymbol);
 
+  const log = createLogger('api:automation:position');
+
   // Get current quote
   let currentPrice: number | null = null;
   try {
     const quote = await getLatestQuote(upperSymbol);
     currentPrice = (quote.bid + quote.ask) / 2 || quote.last;
   } catch {
-    // Quote might fail for some symbols
+    log.warn('Quote unavailable', { symbol: upperSymbol });
   }
 
   // Get active rules for this position

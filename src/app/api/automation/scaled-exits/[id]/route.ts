@@ -56,6 +56,15 @@ export const PATCH = apiHandler(async function PATCH(
 
   const { addTargets, removeTargetPercent, updateTrailing } = body;
 
+  // Validate fields if provided
+  if (addTargets !== undefined && !Array.isArray(addTargets)) {
+    return apiError('addTargets must be an array', 400);
+  }
+
+  if (removeTargetPercent !== undefined && (typeof removeTargetPercent !== 'number' || removeTargetPercent <= 0)) {
+    return apiError('removeTargetPercent must be a positive number', 400);
+  }
+
   const updated = updateScaledExitPlan(id, {
     addTargets,
     removeTargetPercent,

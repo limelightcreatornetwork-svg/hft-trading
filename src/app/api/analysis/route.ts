@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server';
 import { getAccount, getPortfolioHistory, getAccountActivities } from '@/lib/alpaca';
 import { prisma } from '@/lib/db';
 import { apiHandler, apiSuccess, apiError } from '@/lib/api-helpers';
+import { createLogger, serializeError } from '@/lib/logger';
+
+const log = createLogger('api:analysis');
 
 // Disable caching
 export const dynamic = 'force-dynamic';
@@ -189,7 +192,8 @@ export const GET = apiHandler(async function GET(request: NextRequest) {
         pnl: dailyPnL[idx]?.pnl ?? 0,
       })),
     });
-  } catch {
+  } catch (error) {
+    log.error('Failed to load analysis', serializeError(error));
     return apiError('Failed to load analysis');
   }
 });
