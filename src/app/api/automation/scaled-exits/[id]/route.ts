@@ -1,6 +1,6 @@
 /**
  * Individual Scaled Exit Plan API Routes
- * 
+ *
  * GET    - Get a specific plan
  * PATCH  - Update a plan
  * DELETE - Cancel a plan
@@ -13,17 +13,21 @@ import {
   cancelScaledExitPlan,
   getScaledExitHistory,
 } from '@/lib/scaled-exits';
+import { withAuth } from '@/lib/api-auth';
+import { createLogger, serializeError } from '@/lib/logger';
+
+const log = createLogger('api:scaled-exits');
 
 export const dynamic = 'force-dynamic';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(
+export const GET = withAuth(async function GET(
   request: NextRequest,
-  context: RouteContext
+  context?: Record<string, unknown>
 ) {
   try {
-    const { id } = await context.params;
+    const { id } = await (context as unknown as RouteContext).params;
     const { searchParams } = new URL(request.url);
     const history = searchParams.get('history') === 'true';
 
@@ -36,7 +40,7 @@ export async function GET(
     }
 
     const plan = getScaledExitPlan(id);
-    
+
     if (!plan) {
       return NextResponse.json(
         { success: false, error: 'Plan not found' },
@@ -49,22 +53,22 @@ export async function GET(
       data: plan,
     });
   } catch (error) {
-    console.error('GET scaled exit error:', error);
+    log.error('Failed to get scaled exit plan', serializeError(error));
     return NextResponse.json(
       { success: false, error: 'Failed to get scaled exit plan' },
       { status: 500 }
     );
   }
-}
+});
 
-export async function PATCH(
+export const PATCH = withAuth(async function PATCH(
   request: NextRequest,
-  context: RouteContext
+  context?: Record<string, unknown>
 ) {
   try {
-    const { id } = await context.params;
+    const { id } = await (context as unknown as RouteContext).params;
     const body = await request.json();
-    
+
     const { addTargets, removeTargetPercent, updateTrailing } = body;
 
     const updated = updateScaledExitPlan(id, {
@@ -78,20 +82,20 @@ export async function PATCH(
       data: updated,
     });
   } catch (error) {
-    console.error('PATCH scaled exit error:', error);
+    log.error('Failed to update scaled exit plan', serializeError(error));
     return NextResponse.json(
       { success: false, error: 'Failed to update scaled exit plan' },
       { status: 500 }
     );
   }
-}
+});
 
-export async function DELETE(
-  request: NextRequest,
-  context: RouteContext
+export const DELETE = withAuth(async function DELETE(
+  _request: NextRequest,
+  context?: Record<string, unknown>
 ) {
   try {
-    const { id } = await context.params;
+    const { id } = await (context as unknown as RouteContext).params;
 
     await cancelScaledExitPlan(id);
 
@@ -100,10 +104,10 @@ export async function DELETE(
       message: 'Scaled exit plan cancelled',
     });
   } catch (error) {
-    console.error('DELETE scaled exit error:', error);
+    log.error('Failed to cancel scaled exit plan', serializeError(error));
     return NextResponse.json(
       { success: false, error: 'Failed to cancel scaled exit plan' },
       { status: 500 }
     );
   }
-}
+});
