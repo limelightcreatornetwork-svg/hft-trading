@@ -153,6 +153,7 @@ This backlog tracks issues, improvements, and technical debt for the HFT trading
 | Options orders API tests | 35 | 2026-02-04 |
 | Options chain API tests | 36 | 2026-02-04 |
 | Portfolio optimizer tests | 37 | 2026-02-04 |
+| Formatters module tests | 38 | 2026-02-04 |
 
 ---
 
@@ -337,13 +338,13 @@ Added a complete risk management system with 5 integrated components:
 ## Notes
 
 ### Code Quality Metrics (Updated 2026-02-04)
-- **Test Coverage**: 891 tests across 34 test suites
+- **Test Coverage**: 940 tests across 35 test suites
 - **Lint Status**: 0 errors, 58 warnings (mostly unused vars in tests)
 - **TypeScript Strictness**: High (strict mode enabled)
 - **Security**: API auth + rate limiting on critical endpoints
 - **Observability**: Audit logging + health checks
 - **Error Handling**: Error boundaries + graceful failures
-- **Recent Additions**: Portfolio optimizer tests (+59 tests)
+- **Recent Additions**: Formatters tests (+49 tests)
 
 ### Architecture
 ```
